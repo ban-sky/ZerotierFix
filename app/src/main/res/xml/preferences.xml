@@ -21,4 +21,16 @@
             android:summary="@string/preferences_network_disable_ipv6_summary"
             android:title="@string/preferences_network_disable_ipv6" />
     </PreferenceCategory>
+    <PreferenceCategory android:title="@string/preferences_network_advanced">
+        <androidx.preference.SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="network_encrypted_hello"
+            android:summary="@string/preferences_network_encrypted_hello_summary"
+            android:title="@string/preferences_network_encrypted_hello" />
+        <androidx.preference.SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="network_low_bandwidth"
+            android:summary="@string/preferences_network_low_bandwidth_summary"
+            android:title="@string/preferences_network_low_bandwidth" />
+    </PreferenceCategory>
 </PreferenceScreen>

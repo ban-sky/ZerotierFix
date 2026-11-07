@@ -153,4 +153,18 @@
     <string name="dialog_no_notification_alert_title">Notification Permission Not Granted</string>
     <string name="open_notification_settings">Goto notification settings</string>
     <string name="dont_show_again">Don\'t show again</string>
+
+    <!-- Redesigned UI -->
+    <string name="no_networks_title">No networks yet</string>
+    <string name="no_networks_hint">Add a network ID to join your first ZeroTier network.</string>
+    <string name="network_id_hint">16 hexadecimal characters</string>
+    <string name="moon_config_label">Orbit Config</string>
+    <string name="node_id_label">Node ID</string>
+
+    <!-- ZeroTier 1.16 node configuration -->
+    <string name="preferences_network_advanced">Advanced Node Settings</string>
+    <string name="preferences_network_encrypted_hello">Encrypted HELLO</string>
+    <string name="preferences_network_encrypted_hello_summary">Encrypts peer handshakes end-to-end. Requires a network controller that supports it, and adds a small CPU overhead. Reconnect for this change to take effect.</string>
+    <string name="preferences_network_low_bandwidth">Low Bandwidth Mode</string>
+    <string name="preferences_network_low_bandwidth_summary">Reduces keep-alives and path sensing for metered or battery-constrained connections. Slightly slower path discovery. Reconnect for this change to take effect.</string>
 </resources>

@@ -357,8 +357,12 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
 
                     // 创建节点对象并初始化
                     var dataStore = this.dataStore;
+                    var prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                    boolean encryptedHello = prefs.getBoolean(Constants.PREF_NETWORK_ENCRYPTED_HELLO, false);
+                    boolean lowBandwidth = prefs.getBoolean(Constants.PREF_NETWORK_LOW_BANDWIDTH, false);
                     this.node = new Node(System.currentTimeMillis());
-                    var result = this.node.init(dataStore, dataStore, this.udpCom, this, this.tunTapAdapter, this, null);
+                    var result = this.node.init(dataStore, dataStore, this.udpCom, this, this.tunTapAdapter, this, null,
+                            encryptedHello, lowBandwidth);
 
                     if (result == ResultCode.RESULT_OK) {
                         Log.d(TAG, "ZeroTierOne Node Initialized");

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material 3 palette (dark) -->
+    <color name="md_primary">#55DBCB</color>
+    <color name="md_on_primary">#003730</color>
+    <color name="md_primary_container">#005047</color>
+    <color name="md_on_primary_container">#74F8E5</color>
+
+    <color name="md_secondary">#B3C5FF</color>
+    <color name="md_on_secondary">#1B2C5F</color>
+    <color name="md_secondary_container">#324478</color>
+    <color name="md_on_secondary_container">#DBE1FF</color>
+
+    <color name="md_tertiary">#FFB86B</color>
+    <color name="md_on_tertiary">#4A2800</color>
+    <color name="md_tertiary_container">#6A3C00</color>
+    <color name="md_on_tertiary_container">#FFDCBE</color>
+
+    <color name="md_error">#FFB4AB</color>
+    <color name="md_on_error">#690005</color>
+    <color name="md_error_container">#93000A</color>
+    <color name="md_on_error_container">#FFDAD6</color>
+
+    <color name="md_background">#0E1513</color>
+    <color name="md_on_background">#DDE4E1</color>
+    <color name="md_surface">#0E1513</color>
+    <color name="md_on_surface">#DDE4E1</color>
+    <color name="md_surface_variant">#3F4946</color>
+    <color name="md_on_surface_variant">#BEC9C5</color>
+    <color name="md_outline">#899390</color>
+    <color name="md_outline_variant">#3F4946</color>
+
+    <color name="md_surface_container_lowest">#080F0D</color>
+    <color name="md_surface_container_low">#171D1B</color>
+    <color name="md_surface_container">#1B211F</color>
+    <color name="md_surface_container_high">#252B29</color>
+    <color name="md_surface_container_highest">#303634</color>
+
+    <color name="md_inverse_surface">#DDE4E1</color>
+    <color name="md_inverse_on_surface">#2B3230</color>
+    <color name="md_inverse_primary">#006A60</color>
+
+    <color name="splash_background">#0E1513</color>
+
+    <color name="primary_green">#55DBCB</color>
+
+    <color name="grey_text">#BEC9C5</color>
+    <color name="light_grey_text">#2A302E</color>
+    <color name="table_row_grey">#1B211F</color>
+
+    <color name="status_online">#7ED957</color>
+    <color name="status_offline">#FFB86B</color>
+</resources>

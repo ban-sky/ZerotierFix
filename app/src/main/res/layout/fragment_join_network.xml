@@ -1,106 +1,94 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/fragmentJoinNetwork"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center_horizontal"
-    android:windowSoftInputMode="adjustUnspecified|stateHidden|adjustPan">
-
-    <TextView
-        android:id="@+id/network_id_textview"
-        style="?android:attr/listSeparatorTextViewStyle"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"
-        android:text="@string/network_id_string"
-        android:textStyle="bold"
-        android:labelFor="@id/join_network_edit_text"/>
-
-    <EditText
-        android:id="@+id/join_network_edit_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/network_id_textview"
-        android:layout_centerHorizontal="true"
-        android:digits="0123456789ABCDEFabcdef"
-        android:inputType="text"
-        android:maxLength="16"
-        android:textCursorDrawable="@null"
-        android:autofillHints="" />
-
-    <CheckBox
-        android:id="@+id/join_network_default_route"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/join_network_edit_text"
-        android:text="@string/default_route" />
-
-    <TextView
-        android:id="@+id/dns_textview"
-        style="?android:attr/listSeparatorTextViewStyle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/join_network_default_route"
-        android:text="@string/dns_label_string"
-        android:textStyle="bold" />
+    android:background="?attr/colorSurface"
+    android:clipToPadding="false"
+    android:fillViewport="true">
 
     <LinearLayout
-        android:id="@+id/dns_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/dns_textview"
-        android:layout_margin="10dp"
-        android:gravity="center"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="28dp">
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/network_id_string"
+            app:boxCornerRadiusBottomEnd="16dp"
+            app:boxCornerRadiusBottomStart="16dp"
+            app:boxCornerRadiusTopEnd="16dp"
+            app:boxCornerRadiusTopStart="16dp"
+            app:helperText="@string/network_id_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/join_network_edit_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:inputType="textNoSuggestions"
+                android:letterSpacing="0.08"
+                android:maxLength="16"
+                android:maxLines="1"
+                android:textAppearance="@style/TextAppearance.Material3.BodyLarge" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.ZerotierFix.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp">
+
+            <com.google.android.material.checkbox.MaterialCheckBox
+                android:id="@+id/join_network_default_route"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="10dp"
+                android:text="@string/network_default_route"
+                android:textAppearance="@style/TextAppearance.Material3.BodyMedium" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/dns_label_string"
+            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+            android:textColor="?attr/colorOnSurface" />
 
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/dns_tab_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="top">
-
-            <com.google.android.material.tabs.TabItem
-                android:id="@+id/no_dns_layout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/no_dns_tab_title" />
-
-            <com.google.android.material.tabs.TabItem
-                android:id="@+id/network_dns_layout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/network_dns_tab_title" />
-
-            <com.google.android.material.tabs.TabItem
-                android:id="@+id/custom_dns_layout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/custom_dns_tab_title" />
-        </com.google.android.material.tabs.TabLayout>
+            android:layout_marginTop="8dp"
+            app:tabGravity="fill"
+            app:tabMode="fixed"
+            app:tabRippleColor="@null" />
 
         <androidx.viewpager.widget.ViewPager
             android:id="@+id/dns_view_pager"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
+            android:layout_height="240dp"
+            android:layout_marginTop="4dp" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/button_join_network"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:paddingLeft="5dp"
-            android:paddingRight="5dp"
-            android:text="@string/join_network" />
+            style="@style/Widget.Material3.Button"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="24dp"
+            android:enabled="false"
+            android:text="@string/join_network"
+            app:cornerRadius="18dp" />
     </LinearLayout>
-
-    <android.inputmethodservice.KeyboardView
-        android:id="@+id/join_network_keyboard"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true"
-        android:focusable="true"
-        android:focusableInTouchMode="true"
-        android:visibility="gone" />
-</RelativeLayout>
+</androidx.core.widget.NestedScrollView>

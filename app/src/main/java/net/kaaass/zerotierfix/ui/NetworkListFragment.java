@@ -7,6 +7,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.res.ColorStateList;
 import android.net.ConnectivityManager;
 import android.net.VpnService;
 import android.os.Bundle;
@@ -29,6 +30,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
@@ -105,6 +107,7 @@ public class NetworkListFragment extends Fragment {
     private TextView nodeIdView;
     private TextView nodeStatusView;
     private TextView nodeClientVersionView;
+    private View nodeStatusDotView;
 
     private View emptyView = null;
     final private RecyclerView.AdapterDataObserver checkIfEmptyObserver = new RecyclerView.AdapterDataObserver() {
@@ -241,6 +244,8 @@ public class NetworkListFragment extends Fragment {
         this.nodeIdView = view.findViewById(R.id.node_id);
         this.nodeStatusView = view.findViewById(R.id.node_status);
         this.nodeClientVersionView = view.findViewById(R.id.client_version);
+        this.nodeStatusDotView = view.findViewById(R.id.node_status_dot);
+        applyNodeStatusAppearance(false);
         setNodeIdText();
         TextView appVersionView = view.findViewById(R.id.app_version);
         appVersionView.setText(String.format(getString(R.string.app_version_format),
@@ -250,11 +255,16 @@ public class NetworkListFragment extends Fragment {
         updateNetworkListAndNotify();
 
         // 设置添加按钮
-        FloatingActionButton fab = view.findViewById(R.id.fab_add_network);
-        fab.setOnClickListener(parentView -> {
+        View.OnClickListener addNetworkListener = parentView -> {
             Log.d(TAG, "Selected Join Network");
             startActivity(new Intent(getActivity(), JoinNetworkActivity.class));
-        });
+        };
+        FloatingActionButton fab = view.findViewById(R.id.fab_add_network);
+        fab.setOnClickListener(addNetworkListener);
+        View emptyAddButton = view.findViewById(R.id.no_networks_add_button);
+        if (emptyAddButton != null) {
+            emptyAddButton.setOnClickListener(addNetworkListener);
+        }
 
         // 当前连接网络变更时更新列表
         this.viewModel.getConnectNetworkId().observe(getViewLifecycleOwner(), networkId ->
@@ -424,6 +434,7 @@ public class NetworkListFragment extends Fragment {
         // 更新在线状态
         if (status.isOnline()) {
             this.nodeStatusView.setText(R.string.status_online);
+            applyNodeStatusAppearance(true);
             if (this.nodeIdView != null) {
                 this.nodeIdView.setText(Long.toHexString(status.getAddress()));
             }
@@ -453,6 +464,24 @@ public class NetworkListFragment extends Fragment {
         TextView textView = this.nodeStatusView;
         if (textView != null) {
             textView.setText(R.string.status_offline);
+            applyNodeStatusAppearance(false);
+        }
+    }
+
+    /**
+     * 根据节点在线状态更新状态文字与圆点配色
+     */
+    private void applyNodeStatusAppearance(boolean online) {
+        if (getContext() == null) {
+            return;
+        }
+        int color = ContextCompat.getColor(getContext(),
+                online ? R.color.status_online : R.color.status_offline);
+        if (this.nodeStatusView != null) {
+            this.nodeStatusView.setTextColor(color);
+        }
+        if (this.nodeStatusDotView != null) {
+            this.nodeStatusDotView.setBackgroundTintList(ColorStateList.valueOf(color));
         }
     }
 
@@ -676,6 +705,10 @@ public class NetworkListFragment extends Fragment {
                     .getConnectNetworkId().getValue();
             boolean connected = connectedNetworkId != null &&
                     connectedNetworkId.equals(network.getNetworkId());
+            // 设置连接状态标签
+            holder.mStatus.setText(connected ? R.string.network_connected : R.string.network_status_not_connected);
+            holder.mStatus.setTextColor(ContextCompat.getColor(holder.mStatus.getContext(),
+                    connected ? R.color.status_online : R.color.status_offline));
             // 设置开关
             holder.mSwitch.setOnCheckedChangeListener(null);
             holder.mSwitch.setChecked(connected);
@@ -693,6 +726,7 @@ public class NetworkListFragment extends Fragment {
             public final TextView mNetworkId;
             public final TextView mNetworkName;
             public final SwitchCompat mSwitch;
+            public final TextView mStatus;
             public Network mItem;
 
             public ViewHolder(View view) {
@@ -701,6 +735,7 @@ public class NetworkListFragment extends Fragment {
                 mNetworkId = view.findViewById(R.id.network_list_network_id);
                 mNetworkName = view.findViewById(R.id.network_list_network_name);
                 mSwitch = view.findViewById(R.id.network_start_network_switch);
+                mStatus = view.findViewById(R.id.network_list_status);
             }
 
             /**

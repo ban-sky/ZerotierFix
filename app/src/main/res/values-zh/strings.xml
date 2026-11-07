@@ -151,4 +151,18 @@
     <string name="dialog_no_notification_alert_title">未开启通知权限</string>
     <string name="open_notification_settings">打开通知设置</string>
     <string name="dont_show_again">不再提示</string>
+
+    <!-- Redesigned UI -->
+    <string name="no_networks_title">还没有网络</string>
+    <string name="no_networks_hint">添加网络 ID，加入您的第一个 ZeroTier 网络。</string>
+    <string name="network_id_hint">16 位十六进制字符</string>
+    <string name="moon_config_label">Orbit 配置</string>
+    <string name="node_id_label">节点 ID</string>
+
+    <!-- ZeroTier 1.16 node configuration -->
+    <string name="preferences_network_advanced">高级节点设置</string>
+    <string name="preferences_network_encrypted_hello">加密 HELLO</string>
+    <string name="preferences_network_encrypted_hello_summary">对节点间握手进行端到端加密。需要网络控制器支持，并会带来少量 CPU 开销。更改后需重新连接生效。</string>
+    <string name="preferences_network_low_bandwidth">低带宽模式</string>
+    <string name="preferences_network_low_bandwidth_summary">减少保活与路径探测，适用于按流量计费或电量受限的连接，路径发现会稍慢。更改后需重新连接生效。</string>
 </resources>
