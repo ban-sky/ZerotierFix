@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Builds ZerotierFix APKs on a GitHub Actions Ubuntu runner.
+# Keep all build logic here: .github/workflows/build.yml only bootstraps this script.
+set -euo pipefail
+
+SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+if [ -z "$SDK_ROOT" ]; then
+  echo "ANDROID_SDK_ROOT/ANDROID_HOME is not set" >&2
+  exit 1
+fi
+echo "Android SDK: $SDK_ROOT"
+echo "Java: $(java -version 2>&1 | head -n 1)"
+
+NDK_VERSION="27.0.12077973"
+CMAKE_VERSION="3.22.1"
+
+install_if_missing() {
+  local pkg="$1" path="$2"
+  if [ ! -e "$SDK_ROOT/$path" ]; then
+    echo "Installing $pkg ..."
+    yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+    "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "$pkg" >/dev/null
+  else
+    echo "Already present: $pkg"
+  fi
+}
+
+install_if_missing "platform-tools" "platform-tools"
+install_if_missing "platforms;android-35" "platforms/android-35"
+install_if_missing "build-tools;35.0.0" "build-tools/35.0.0"
+install_if_missing "ndk;$NDK_VERSION" "ndk/$NDK_VERSION"
+install_if_missing "cmake;$CMAKE_VERSION" "cmake/$CMAKE_VERSION"
+
+chmod +x ./gradlew
+./gradlew --no-daemon --stacktrace assembleDebug assembleRelease
+
+VERSION_NAME="$(sed -n 's/.*versionName "\(.*\)".*/\1/p' app/build.gradle | head -n 1)"
+VERSION_NAME="${VERSION_NAME:-dev}"
+mkdir -p dist
+DEBUG_APK="app/build/outputs/apk/debug/app-debug.apk"
+RELEASE_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+[ -f "$DEBUG_APK" ] || { echo "missing $DEBUG_APK" >&2; exit 1; }
+cp "$DEBUG_APK" "dist/ZerotierFix-$VERSION_NAME-debug.apk"
+if [ -f "$RELEASE_APK" ]; then
+  cp "$RELEASE_APK" "dist/ZerotierFix-$VERSION_NAME-release-unsigned.apk"
+fi
+(cd dist && sha256sum ./*.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+ls -lh dist
