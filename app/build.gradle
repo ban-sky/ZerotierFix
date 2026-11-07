@@ -72,7 +72,7 @@ dependencies {
 
     implementation 'org.greenrobot:greendao:3.3.0'
     implementation 'org.greenrobot:eventbus:3.3.1'
-    implementation 'commons-validator:commons-validator:1.9.0'
+    implementation 'commons-validator:commons-validator:1.10.1'
     implementation 'androidx.multidex:multidex:2.0.1'
 
     //noinspection AnnotationProcessorOnCompilePath

@@ -197,6 +197,11 @@ public class PrefsFragment extends PreferenceFragmentCompat implements SharedPre
                         // 不必关闭对话框
                         return;
                     }
+                    // Planet 文件是 ZeroTier 的信任根，必须经加密信道下载，防止中间人替换
+                    if (!"https".equalsIgnoreCase(fileUrl.getProtocol())) {
+                        Toast.makeText(getContext(), R.string.planet_url_requires_https, Toast.LENGTH_LONG).show();
+                        return;
+                    }
 
                     // 关闭对话框
                     if (this.planetDialog != null) {

@@ -33,6 +33,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
+                android:digits="0123456789abcdefABCDEF"
                 android:inputType="textNoSuggestions"
                 android:letterSpacing="0.08"
                 android:maxLength="16"

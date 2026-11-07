@@ -101,7 +101,7 @@ public class JoinNetworkFragment extends Fragment implements CustomDNSListener {
 
             @Override // com.zerotier.one.ui.JoinNetworkFragment.TextValidator
             public void validate(EditText editText, String str) {
-                if (str.length() == 16) {
+                if (str.length() == 16 && str.matches("[0-9a-fA-F]{16}")) {
                     JoinNetworkFragment.this.mJoinButton.setEnabled(true);
                     JoinNetworkFragment.this.mDefaultRouteCheckBox.setEnabled(true);
                     return;
@@ -200,9 +200,9 @@ public class JoinNetworkFragment extends Fragment implements CustomDNSListener {
                     network.setNetworkConfigId(hexStringToLong);
                     networkDao.insert(network);
                     JoinNetworkFragment.this.getActivity().onBackPressed();
-                } catch (Throwable th) {
+                } catch (RuntimeException e) {
+                    Log.e(JoinNetworkFragment.TAG, "Failed to join network", e);
                     JoinNetworkFragment.this.getActivity().onBackPressed();
-                    throw th;
                 }
             }
         });

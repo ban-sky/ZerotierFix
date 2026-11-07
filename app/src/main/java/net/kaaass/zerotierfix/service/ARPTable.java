@@ -177,6 +177,11 @@ public class ARPTable {
         InetAddress srcAddress;
         InetAddress dstAddress;
         Log.d(TAG, "Processing ARP packet");
+        // 同网络内的恶意成员可能发送截断的 ARP 帧，先校验长度再按固定偏移解析
+        if (packetData == null || packetData.length < 28) {
+            Log.w(TAG, "Ignoring truncated ARP packet");
+            return null;
+        }
 
         // 解析包内 IP、MAC 地址
         byte[] rawSrcMac = new byte[8];

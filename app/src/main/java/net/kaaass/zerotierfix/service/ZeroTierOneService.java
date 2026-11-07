@@ -950,7 +950,8 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
             this.notificationManager.createNotificationChannel(channel);
         }
         int pendingIntentFlag = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= 31) {
+        // FLAG_IMMUTABLE 自 API 23 起可用，尽早固定 Intent，避免被第三方改写
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             pendingIntentFlag |= PendingIntent.FLAG_IMMUTABLE;
         }
         var pendingIntent =
@@ -966,7 +967,13 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
                 .setContentTitle(getString(R.string.notification_title_connected))
                 .setContentText(getString(R.string.notification_text_connected, network.getNetworkIdStr()))
                 .setColor(ContextCompat.getColor(getApplicationContext(), R.color.zerotier_orange))
-                .setContentIntent(pendingIntent).build();
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setContentIntent(pendingIntent)
+                .setPublicVersion(new NotificationCompat.Builder(this, Constants.CHANNEL_ID)
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle(getString(R.string.notification_title_connected))
+                        .build())
+                .build();
         this.notificationManager.notify(ZT_NOTIFICATION_TAG, notification);
         Log.i(TAG, "ZeroTier One Connected");
 

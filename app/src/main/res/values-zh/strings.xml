@@ -117,6 +117,7 @@
     <string name="cannot_open_moon">无法打开 Moon 文件</string>
     <string name="set_planet_file">设置 Planet 文件</string>
     <string name="wrong_url_format">URL 格式错误</string>
+    <string name="planet_url_requires_https">出于安全考虑，Planet 文件只能通过 HTTPS 下载</string>
     <string name="cannot_download_planet_file">无法下载 Planet 文件</string>
     <string name="set_planet_succ">成功设置 Planet 文件</string>
     <string name="planet_wrong_format">Planet 文件格式错误</string>

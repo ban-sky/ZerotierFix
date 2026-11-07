@@ -79,6 +79,10 @@ public class DataStore implements DataStoreGetListener, DataStorePutListener {
         if (hookPlanetFile(name)) {
             return 0;
         }
+        if (!isSafeName(name)) {
+            Log.e(TAG, "Rejected unsafe data store name: " + name);
+            return 1;
+        }
         if (name.contains("/")) {
             File file = new File(this.context.getFilesDir(), name);
             if (!file.exists()) {
@@ -97,6 +101,10 @@ public class DataStore implements DataStoreGetListener, DataStorePutListener {
         Log.d(TAG, "Reading File: " + name);
         if (hookPlanetFile(name)) {
             name = Constants.FILE_CUSTOM_PLANET;
+        }
+        if (!isSafeName(name)) {
+            Log.e(TAG, "Rejected unsafe data store name: " + name);
+            return -4;
         }
         // 读入文件
         try {
@@ -127,6 +135,20 @@ public class DataStore implements DataStoreGetListener, DataStorePutListener {
             Log.e(TAG, "", e);
             return -3;
         }
+    }
+
+    /**
+     * 校验 core 传入的文件名，禁止绝对路径、目录穿越与非法字符，
+     * 避免越出应用私有目录读写文件。
+     */
+    private static boolean isSafeName(String name) {
+        if (name == null || name.isEmpty()) {
+            return false;
+        }
+        if (name.startsWith("/") || name.contains("\\") || name.contains("..")) {
+            return false;
+        }
+        return name.matches("[A-Za-z0-9._/-]+");
     }
 
     /**

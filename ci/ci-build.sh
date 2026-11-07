@@ -59,5 +59,13 @@ cp "$DEBUG_APK" "dist/ZerotierFix-$VERSION_NAME-debug.apk"
 if [ -f "$RELEASE_APK" ]; then
   cp "$RELEASE_APK" "dist/ZerotierFix-$VERSION_NAME-release-unsigned.apk"
 fi
+# Sanity check: the debug APK must be a validly signed, well-formed package.
+APKSIGNER="$SDK_ROOT/build-tools/35.0.0/apksigner"
+if [ -x "$APKSIGNER" ]; then
+  "$APKSIGNER" verify --verbose "dist/ZerotierFix-$VERSION_NAME-debug.apk"
+else
+  echo "apksigner not found, skipping verification" >&2
+fi
+
 (cd dist && sha256sum ./*.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
 ls -lh dist

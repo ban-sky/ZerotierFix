@@ -60,12 +60,16 @@ public class UdpCom implements PacketSender, Runnable {
                         byte[] bArr2 = new byte[datagramPacket.getLength()];
                         System.arraycopy(datagramPacket.getData(), 0, bArr2, 0, datagramPacket.getLength());
                         DebugLog.d(TAG, "Got " + datagramPacket.getLength() + " Bytes From: " + datagramPacket.getAddress().toString() + ":" + datagramPacket.getPort());
-                        ResultCode processWirePacket = this.node.processWirePacket(System.currentTimeMillis(), -1, new InetSocketAddress(datagramPacket.getAddress(), datagramPacket.getPort()), bArr2, jArr);
-                        if (processWirePacket != ResultCode.RESULT_OK) {
-                            Log.e(TAG, "processWirePacket returned: " + processWirePacket.toString());
-                            this.ztService.shutdown();
+                        try {
+                            ResultCode processWirePacket = this.node.processWirePacket(System.currentTimeMillis(), -1, new InetSocketAddress(datagramPacket.getAddress(), datagramPacket.getPort()), bArr2, jArr);
+                            // 单一坏包（可能来自任意网络来源）不应终止整个 VPN，丢弃后继续
+                            if (processWirePacket != ResultCode.RESULT_OK) {
+                                Log.e(TAG, "processWirePacket returned: " + processWirePacket.toString());
+                            }
+                            this.ztService.setNextBackgroundTaskDeadline(jArr[0]);
+                        } catch (RuntimeException e) {
+                            Log.e(TAG, "Failed to process wire packet", e);
                         }
-                        this.ztService.setNextBackgroundTaskDeadline(jArr[0]);
                     }
                 } catch (SocketTimeoutException ignored) {
                 }
