@@ -8,6 +8,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Java COMPONENTS Development)
 message("JAVA_HOME: $ENV{JAVA_HOME}")
 
+if(ANDROID AND NOT Java_INCLUDE_DIRS)
+    set(Java_INCLUDE_DIRS "$ENV{JAVA_HOME}/include" "$ENV{JAVA_HOME}/include/linux")
+endif()
+
 if(WIN32)
 set(Java_INCLUDE_DIRS $ENV{JAVA_HOME}/include)
 endif()
@@ -48,7 +52,7 @@ set(include_dirs
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/
     ${CMAKE_CURRENT_SOURCE_DIR}/../node/
     ${CMAKE_CURRENT_SOURCE_DIR}/../osdep/
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ext/nlohmann/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../ext/
     ${CMAKE_CURRENT_SOURCE_DIR}/../ext/prometheus-cpp-lite-1.0/core/include/
     ${CMAKE_CURRENT_SOURCE_DIR}/../ext/prometheus-cpp-lite-1.0/simpleapi/include/
     ${Java_INCLUDE_DIRS})
