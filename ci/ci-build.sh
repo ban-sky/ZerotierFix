@@ -14,12 +14,27 @@ echo "Java: $(java -version 2>&1 | head -n 1)"
 NDK_VERSION="27.0.12077973"
 CMAKE_VERSION="3.22.1"
 
+# The runner image ships cmdline-tools under an arbitrary revision directory
+# (e.g. cmdline-tools/16.0 or /20.0), and setup-android may add another one to
+# PATH, so never hardcode cmdline-tools/latest.
+SDKMANAGER="$(command -v sdkmanager || true)"
+if [ -z "$SDKMANAGER" ]; then
+  for candidate in "$SDK_ROOT"/cmdline-tools/*/bin/sdkmanager; do
+    if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+  done
+fi
+if [ -z "$SDKMANAGER" ]; then
+  echo "sdkmanager not found under $SDK_ROOT" >&2
+  exit 1
+fi
+echo "sdkmanager: $SDKMANAGER"
+
 install_if_missing() {
   local pkg="$1" path="$2"
   if [ ! -e "$SDK_ROOT/$path" ]; then
     echo "Installing $pkg ..."
-    yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
-    "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "$pkg" >/dev/null
+    yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null 2>&1 || true
+    "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "$pkg" >/dev/null
   else
     echo "Already present: $pkg"
   fi
