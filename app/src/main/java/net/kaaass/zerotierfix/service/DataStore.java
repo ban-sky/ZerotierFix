@@ -38,6 +38,10 @@ public class DataStore implements DataStoreGetListener, DataStorePutListener {
         if (hookPlanetFile(name)) {
             return 0;
         }
+        if (!isSafeName(name)) {
+            Log.e(TAG, "Rejected unsafe data store name: " + name);
+            return -4;
+        }
         try {
             if (name.contains("/")) {
                 File file = new File(this.context.getFilesDir(), name.substring(0, name.lastIndexOf('/')));

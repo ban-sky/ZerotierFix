@@ -360,14 +360,19 @@ public class TunTapAdapter implements VirtualNetworkFrameListener {
     public void interrupt() {
         if (this.receiveThread != null) {
             try {
-                this.in.close();
-                this.out.close();
+                if (this.in != null) {
+                    this.in.close();
+                }
+                if (this.out != null) {
+                    this.out.close();
+                }
             } catch (IOException e) {
                 Log.e(TAG, "Error stopping in/out: " + e.getMessage(), e);
             }
             this.receiveThread.interrupt();
             try {
-                this.receiveThread.join();
+                // 有界等待，避免接收线程卡在 native read 时调用方（UI/onDestroy）永久阻塞
+                this.receiveThread.join(3000L);
             } catch (InterruptedException ignored) {
             }
         }

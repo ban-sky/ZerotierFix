@@ -452,13 +452,8 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
             this.udpThread = null;
         }
         if (this.tunTapAdapter != null && this.tunTapAdapter.isRunning()) {
+            // TunTapAdapter 不是 Thread，interrupt() 内部会带超时地 join 接收线程
             this.tunTapAdapter.interrupt();
-            if (this.tunTapAdapter != Thread.currentThread()) {
-                try {
-                    this.tunTapAdapter.join(JOIN_TIMEOUT_MS);
-                } catch (InterruptedException ignored) {
-                }
-            }
             this.tunTapAdapter = null;
         }
         if (this.vpnThread != null && this.vpnThread.isAlive()) {
@@ -814,12 +809,6 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
         // 重启 TUN TAP
         if (this.tunTapAdapter.isRunning()) {
             this.tunTapAdapter.interrupt();
-            if (this.tunTapAdapter != Thread.currentThread()) {
-                try {
-                    this.tunTapAdapter.join(JOIN_TIMEOUT_MS);
-                } catch (InterruptedException ignored) {
-                }
-            }
         }
         this.tunTapAdapter.clearRouteMap();
 
