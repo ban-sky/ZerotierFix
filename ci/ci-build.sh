@@ -67,25 +67,11 @@ if [ -x "$APKSIGNER" ]; then
 else
   echo "apksigner not found, skipping verification" >&2
 fi
-echo "[ci] apksigner verification finished (exit $?)"
 
-# Android 15+ devices may use 16 KB pages: the arm64 native library and the
-# uncompressed .so entries in the APK must be 16 KB aligned, otherwise the
-# package fails to install on those devices (and Play rejects it).
-READELF="$SDK_ROOT/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
-echo "[ci] readelf: $READELF exist=$([ -x "$READELF" ] && echo yes || echo no)"
-if [ -x "$READELF" ]; then
-  for so in core/build/intermediates/cxx/*/*/obj/arm64-v8a/libZeroTierOneJNI.so; do
-    [ -f "$so" ] || continue
-    ALIGN="$("$READELF" -lW "$so" | awk "/LOAD/ {print \$NF; exit}")"
-    echo "16 KB check: $so LOAD align=$ALIGN"
-    case "$ALIGN" in
-      0x4000|0x10000) ;;
-      *) echo "native library is not 16 KB aligned: $so" >&2; exit 1 ;;
-    esac
-  done
-fi
-
+# Android 15+ devices may use 16 KB pages: the arm64 native library must
+# have 16 KB aligned PT_LOAD segments, otherwise the package cannot be loaded
+# on those devices (and Play rejects it).
+node ci/check-16kb.js core/build/intermediates/cxx
 
 echo "[ci] writing checksums"
 (cd dist && sha256sum ./*.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
