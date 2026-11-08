@@ -100,10 +100,17 @@ public abstract class SingleFragmentActivity extends AppCompatActivity {
 
         ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
             Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-            appBar.setPadding(appBarPaddingLeft, appBarPaddingTop + systemBars.top,
+            Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+            Insets cutout = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout());
+            // Android 15+ draws edge-to-edge by default and no longer resizes the
+            // window for the keyboard, so the IME inset has to be consumed here;
+            // otherwise the soft keyboard covers the bottom of the form.
+            int topInset = Math.max(systemBars.top, cutout.top);
+            int bottomInset = Math.max(systemBars.bottom, Math.max(ime.bottom, cutout.bottom));
+            appBar.setPadding(appBarPaddingLeft, appBarPaddingTop + topInset,
                     appBarPaddingRight, appBarPaddingBottom);
             container.setPadding(containerPaddingLeft, containerPaddingTop,
-                    containerPaddingRight, systemBars.bottom);
+                    containerPaddingRight, bottomInset);
             return windowInsets;
         });
         ViewCompat.requestApplyInsets(root);

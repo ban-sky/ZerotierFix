@@ -85,7 +85,7 @@ if(ANDROID)
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
         target_compile_options(${PROJECT_NAME} PRIVATE -D_FORTIFY_SOURCE=2)
     endif()
-    target_link_options(${PROJECT_NAME} PRIVATE -Wl,-z,relro -Wl,-z,now)
+    target_link_options(${PROJECT_NAME} PRIVATE -Wl,-z,relro -Wl,-z,now -Wl,-z,max-page-size=16384)
 endif()
 
 if(WIN32)
