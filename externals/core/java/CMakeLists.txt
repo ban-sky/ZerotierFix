@@ -86,6 +86,9 @@ if(ANDROID)
         target_compile_options(${PROJECT_NAME} PRIVATE -D_FORTIFY_SOURCE=2)
     endif()
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,-z,relro -Wl,-z,now -Wl,-z,max-page-size=16384)
+    # AGP 8.13 + NDK r28 reports "Unable to strip" for this library and would
+    # package ~22 MB of DWARF symbols per ABI, so strip at link time as well.
+    target_link_options(${PROJECT_NAME} PRIVATE -Wl,-s)
 endif()
 
 if(WIN32)

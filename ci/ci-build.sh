@@ -50,6 +50,19 @@ install_if_missing "cmake;$CMAKE_VERSION" "cmake/$CMAKE_VERSION"
 chmod +x ./gradlew
 ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease
 
+# AGP prints "Unable to strip the following libraries" for the native core, so
+# probe the NDK strip tool directly to keep the underlying error visible.
+NDK_STRIP="$SDK_ROOT/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+for so in core/build/intermediates/cxx/*/*/obj/arm64-v8a/libZeroTierOneJNI.so; do
+  [ -f "$so" ] || continue
+  cp "$so" /tmp/strip-probe.so
+  if "$NDK_STRIP" --strip-unneeded /tmp/strip-probe.so 2>/tmp/strip-probe.err; then
+    echo "[ci] llvm-strip ok: $so ($(stat -c%s "$so") -> $(stat -c%s /tmp/strip-probe.so) bytes)"
+  else
+    echo "[ci] llvm-strip failed for $so: $(cat /tmp/strip-probe.err)"
+  fi
+done
+
 VERSION_NAME="$(sed -n 's/.*versionName "\(.*\)".*/\1/p' app/build.gradle | head -n 1)"
 VERSION_NAME="${VERSION_NAME:-dev}"
 mkdir -p dist
