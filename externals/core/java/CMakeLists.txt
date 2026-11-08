@@ -76,12 +76,16 @@ endif()
 set(link_libs )
 
 # Android: enable the same kind of hardening the APPLE branch above uses.
-# Stack protector, fortified libc calls and PIE plus a RELRO/now binding keep
-# memory-corruption bugs in the native core harder to turn into code execution.
+# Stack protector plus RELRO/now binding keep memory-corruption bugs in the
+# native core harder to turn into code execution. AGP already builds the
+# library as PIC, so no -fPIE here; FORTIFY needs an optimising build.
 if(ANDROID)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong -fPIE -D_FORTIFY_SOURCE=2")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstack-protector-strong -fPIE -D_FORTIFY_SOURCE=2")
-    set(link_libs ${link_libs} log -Wl,-z,relro -Wl,-z,now)
+    set(link_libs ${link_libs} log)
+    target_compile_options(${PROJECT_NAME} PRIVATE -fstack-protector-strong -fvisibility=hidden)
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(${PROJECT_NAME} PRIVATE -D_FORTIFY_SOURCE=2)
+    endif()
+    target_link_options(${PROJECT_NAME} PRIVATE -Wl,-z,relro -Wl,-z,now)
 endif()
 
 if(WIN32)

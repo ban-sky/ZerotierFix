@@ -88,7 +88,8 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
     private static final String[] DISALLOWED_APPS = {"com.android.vending"};
     private static final String TAG = "ZT1_Service";
     private static final long JOIN_TIMEOUT_MS = 3000L;
-    private static final java.util.concurrent.atomic.AtomicLong NODE_SEQUENCE = new java.util.concurrent.atomic.AtomicLong();
+    private static final Object NODE_ID_LOCK = new Object();
+    private static long LAST_NODE_ID = 0L;
     private static final int ZT_NOTIFICATION_TAG = 5919812;
     private final IBinder mBinder = new ZeroTierBinder();
     private final DataStore dataStore = new DataStore(this);
@@ -362,8 +363,15 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
                     var prefs = PreferenceManager.getDefaultSharedPreferences(this);
                     boolean encryptedHello = prefs.getBoolean(Constants.PREF_NETWORK_ENCRYPTED_HELLO, false);
                     boolean lowBandwidth = prefs.getBoolean(Constants.PREF_NETWORK_LOW_BANDWIDTH, false);
-                    // 同毫秒内创建两个节点会导致 nodeMap 冲突/误删，附加自增序号保证唯一
-                    long nodeId = System.currentTimeMillis() * 1000L + (NODE_SEQUENCE.getAndIncrement() % 1000L);
+                    // 同毫秒内创建两个节点会导致 nodeMap 冲突/误删。这里保留毫秒时间戳
+                    // 语义（core 会把它当作初始 _now），只在重复时顺延 1ms 保证唯一。
+                    long nodeId = System.currentTimeMillis();
+                    synchronized (NODE_ID_LOCK) {
+                        if (nodeId <= LAST_NODE_ID) {
+                            nodeId = LAST_NODE_ID + 1;
+                        }
+                        LAST_NODE_ID = nodeId;
+                    }
                     this.node = new Node(nodeId);
                     var result = this.node.init(dataStore, dataStore, this.udpCom, this, this.tunTapAdapter, this, null,
                             encryptedHello, lowBandwidth);
