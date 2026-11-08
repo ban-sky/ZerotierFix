@@ -42,6 +42,7 @@ install_if_missing() {
 
 install_if_missing "platform-tools" "platform-tools"
 install_if_missing "platforms;android-36" "platforms/android-36"
+install_if_missing "build-tools;35.0.0" "build-tools/35.0.0"
 install_if_missing "build-tools;36.0.0" "build-tools/36.0.0"
 install_if_missing "ndk;$NDK_VERSION" "ndk/$NDK_VERSION"
 install_if_missing "cmake;$CMAKE_VERSION" "cmake/$CMAKE_VERSION"
