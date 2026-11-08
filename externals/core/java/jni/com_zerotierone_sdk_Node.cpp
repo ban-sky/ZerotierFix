@@ -919,6 +919,11 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_node_1init(
         LOGE("Error creating Node: %d", rc);
         resultObject = createResultObject(env, rc);
         if (env->ExceptionCheck() || resultObject == NULL) {
+            if (node) {
+                ZT_Node_delete(node);
+                node = NULL;
+            }
+            delete ref;
             return NULL;
         }
 
@@ -939,6 +944,9 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_node_1init(
 
     if (!ref->finishInitializing()) {
         LOGE("finishInitializing() failed");
+        ZT_Node_delete(node);
+        ref->node = NULL;
+        delete ref;
         return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
     }
 
@@ -972,7 +980,10 @@ JNIEXPORT void JNICALL Java_com_zerotier_sdk_Node_node_1delete(
         return;
     }
 
-    ZT_Node_delete(ref->node);
+    if (ref->node != NULL) {
+        ZT_Node_delete(ref->node);
+        ref->node = NULL;
+    }
 
     delete ref;
 }
@@ -997,6 +1008,14 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_processVirtualNetworkFrame(
     int64_t nodeId = (int64_t) id;
 
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("processVirtualNetworkFrame: node not found");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
+    if (out_nextBackgroundTaskDeadline == NULL) {
+        LOGE("processVirtualNetworkFrame: out_nextBackgroundTaskDeadline is NULL");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
 
     unsigned int nbtd_len = env->GetArrayLength(out_nextBackgroundTaskDeadline);
     if(nbtd_len < 1)
@@ -1012,12 +1031,23 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_processVirtualNetworkFrame(
     unsigned int etherType = (unsigned int)in_etherType;
     unsigned int vlanId = (unsigned int)in_vlanId;
 
-    unsigned int frameLength = env->GetArrayLength(in_frameData);
+    if (in_frameData == NULL) {
+        LOGE("processVirtualNetworkFrame: in_frameData is NULL");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
+    unsigned int frameLength = (unsigned int)env->GetArrayLength(in_frameData);
     void *frameData = env->GetPrimitiveArrayCritical(in_frameData, NULL);
     //
     // need local copy of frameData because arbitrary code may run in ZT_Node_processVirtualNetworkFrame and no other JNI work may happen between GetPrimitiveArrayCritical / ReleasePrimitiveArrayCritical
     //
-    void *localData = malloc(frameLength);
+    void *localData = malloc(frameLength > 0 ? frameLength : 1);
+    if (frameData == NULL || localData == NULL) {
+        if (frameData != NULL) {
+            env->ReleasePrimitiveArrayCritical(in_frameData, frameData, 0);
+        }
+        free(localData);
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
     memcpy(localData, frameData, frameLength);
     env->ReleasePrimitiveArrayCritical(in_frameData, frameData, 0);
 
@@ -1047,8 +1077,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_processVirtualNetworkFrame(
     free(localData);
 
     jlong *outDeadline = (jlong*)env->GetPrimitiveArrayCritical(out_nextBackgroundTaskDeadline, NULL);
-    outDeadline[0] = (jlong)nextBackgroundTaskDeadline;
-    env->ReleasePrimitiveArrayCritical(out_nextBackgroundTaskDeadline, outDeadline, 0);
+    if (outDeadline != NULL) {
+        outDeadline[0] = (jlong)nextBackgroundTaskDeadline;
+        env->ReleasePrimitiveArrayCritical(out_nextBackgroundTaskDeadline, outDeadline, 0);
+    }
 
     return createResultObject(env, rc);
 }
@@ -1069,6 +1101,14 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_processWirePacket(
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("processWirePacket: node not found");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
+    if (out_nextBackgroundTaskDeadline == NULL || in_packetData == NULL) {
+        LOGE("processWirePacket: NULL array argument");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
 
     unsigned int nbtd_len = (unsigned int)env->GetArrayLength(out_nextBackgroundTaskDeadline);
     if(nbtd_len < 1)
@@ -1095,6 +1135,13 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_processWirePacket(
     // need local copy of packetData because arbitrary code may run in ZT_Node_processWirePacket and no other JNI work may happen between GetPrimitiveArrayCritical / ReleasePrimitiveArrayCritical
     //
     void *localData = malloc(packetLength);
+    if (packetData == NULL || localData == NULL) {
+        if (packetData != NULL) {
+            env->ReleasePrimitiveArrayCritical(in_packetData, packetData, 0);
+        }
+        free(localData);
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
     memcpy(localData, packetData, packetLength);
     env->ReleasePrimitiveArrayCritical(in_packetData, packetData, 0);
 
@@ -1122,8 +1169,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_processWirePacket(
     free(localData);
 
     jlong *outDeadline = (jlong*)env->GetPrimitiveArrayCritical(out_nextBackgroundTaskDeadline, NULL);
-    outDeadline[0] = (jlong)nextBackgroundTaskDeadline;
-    env->ReleasePrimitiveArrayCritical(out_nextBackgroundTaskDeadline, outDeadline, 0);
+    if (outDeadline != NULL) {
+        outDeadline[0] = (jlong)nextBackgroundTaskDeadline;
+        env->ReleasePrimitiveArrayCritical(out_nextBackgroundTaskDeadline, outDeadline, 0);
+    }
 
     return createResultObject(env, rc);
 }
@@ -1141,6 +1190,14 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_processBackgroundTasks(
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("processBackgroundTasks: node not found");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
+    if (out_nextBackgroundTaskDeadline == NULL) {
+        LOGE("processBackgroundTasks: out_nextBackgroundTaskDeadline is NULL");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
 
     unsigned int nbtd_len = env->GetArrayLength(out_nextBackgroundTaskDeadline);
     if(nbtd_len < 1)
@@ -1161,8 +1218,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_processBackgroundTasks(
     }
 
     jlong *outDeadline = (jlong*)env->GetPrimitiveArrayCritical(out_nextBackgroundTaskDeadline, NULL);
-    outDeadline[0] = (jlong)nextBackgroundTaskDeadline;
-    env->ReleasePrimitiveArrayCritical(out_nextBackgroundTaskDeadline, outDeadline, 0);
+    if (outDeadline != NULL) {
+        outDeadline[0] = (jlong)nextBackgroundTaskDeadline;
+        env->ReleasePrimitiveArrayCritical(out_nextBackgroundTaskDeadline, outDeadline, 0);
+    }
 
     return createResultObject(env, rc);
 }
@@ -1177,6 +1236,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_join(
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("join: node not found");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
     uint64_t nwid = (uint64_t)in_nwid;
 
     ZT_ResultCode rc = ZT_Node_join(node, nwid, NULL, NULL);
@@ -1198,6 +1261,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_leave(
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("leave: node not found");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
 
     uint64_t nwid = (uint64_t)in_nwid;
 
@@ -1224,6 +1291,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_multicastSubscribe(
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("multicastSubscribe: node not found");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
 
     uint64_t nwid = (uint64_t)in_nwid;
     uint64_t multicastGroup = (uint64_t)in_multicastGroup;
@@ -1253,6 +1324,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_multicastUnsubscribe(
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("multicastUnsubscribe: node not found");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
 
     uint64_t nwid = (uint64_t)in_nwid;
     uint64_t multicastGroup = (uint64_t)in_multicastGroup;
@@ -1281,6 +1356,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_orbit(
 {
     int64_t nodeId = (int64_t)id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("orbit: node not found");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
 
     uint64_t moonWorldId = (uint64_t)in_moonWorldId;
     uint64_t moonSeed = (uint64_t)in_moonSeed;
@@ -1306,6 +1385,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_deorbit(
 {
     int64_t nodeId = (int64_t)id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("deorbit: node not found");
+        return ResultCode_RESULT_FATAL_ERROR_INTERNAL_enum;
+    }
 
     uint64_t moonWorldId = (uint64_t)in_moonWorldId;
 
@@ -1328,6 +1411,10 @@ JNIEXPORT jlong JNICALL Java_com_zerotier_sdk_Node_address(
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("address: node not found");
+        return 0;
+    }
 
     uint64_t address = ZT_Node_address(node);
     return (jlong)address;
@@ -1343,6 +1430,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_status
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("status: node not found");
+        return NULL;
+    }
 
     ZT_NodeStatus nodeStatus;
     ZT_Node_status(node, &nodeStatus);
@@ -1360,6 +1451,10 @@ JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_networkConfig(
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("networkConfig: node not found");
+        return NULL;
+    }
 
     ZT_VirtualNetworkConfig *vnetConfig = ZT_Node_networkConfig(node, nwid);
     if (vnetConfig == NULL) {
@@ -1401,6 +1496,10 @@ JNIEXPORT jobjectArray JNICALL Java_com_zerotier_sdk_Node_peers(
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("peers: node not found");
+        return NULL;
+    }
 
     ZT_PeerList *peerList = ZT_Node_peers(node);
 
@@ -1428,6 +1527,10 @@ JNIEXPORT jobjectArray JNICALL Java_com_zerotier_sdk_Node_networkConfigs(
 {
     int64_t nodeId = (int64_t) id;
     ZT_Node *node = findNode(nodeId);
+    if (!node) {
+        LOGE("networkConfigs: node not found");
+        return NULL;
+    }
 
     ZT_VirtualNetworkList *networkList = ZT_Node_networks(node);
     if(networkList == NULL)
