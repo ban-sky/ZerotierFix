@@ -1,5 +1,6 @@
 package net.kaaass.zerotierfix.ui;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -7,9 +8,11 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.net.ConnectivityManager;
 import android.net.VpnService;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
@@ -109,6 +112,15 @@ public class NetworkListFragment extends Fragment {
     private TextView nodeClientVersionView;
     private View nodeStatusDotView;
 
+    // Android 13+ requires a runtime grant before the VPN notification is shown.
+    private final ActivityResultLauncher<String> notificationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+                if (isAdded()) {
+                    checkNotificationPermission();
+                }
+            });
+    private boolean notificationPermissionRequested = false;
+
     private View emptyView = null;
     final private RecyclerView.AdapterDataObserver checkIfEmptyObserver = new RecyclerView.AdapterDataObserver() {
         @Override
@@ -206,6 +218,30 @@ public class NetworkListFragment extends Fragment {
         this.eventBus.post(new IsServiceRunningRequestEvent());
 
         // 检查通知权限
+        requestNotificationPermissionIfNeeded();
+    }
+
+    /**
+     * Android 13+ hides the VPN notification unless POST_NOTIFICATIONS is granted
+     * at runtime, so ask once before falling back to the settings dialog.
+     */
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            checkNotificationPermission();
+            return;
+        }
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) {
+            checkNotificationPermission();
+            return;
+        }
+        if (!this.notificationPermissionRequested) {
+            this.notificationPermissionRequested = true;
+            this.notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+        }
+    }
+
+    private void checkNotificationPermission() {
         var notificationManager = NotificationManagerCompat.from(requireContext());
         if (!notificationManager.areNotificationsEnabled()) {
             // 无通知权限
