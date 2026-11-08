@@ -42,8 +42,10 @@ public abstract class SingleFragmentActivity extends AppCompatActivity {
 
     @Override
     public void onCreate(Bundle bundle) {
-        // 上次启动崩溃过：先让 CrashReportActivity 展示堆栈，别继续走正常界面
+        // 上次启动崩溃过：先让 CrashReportActivity 展示堆栈，别继续走正常界面。
+        // 注意 super.onCreate 必须被调用，否则系统会抛 SuperNotCalledException。
         if (net.kaaass.zerotierfix.CrashReporter.hasReport(this)) {
+            super.onCreate(bundle);
             finish();
             return;
         }
