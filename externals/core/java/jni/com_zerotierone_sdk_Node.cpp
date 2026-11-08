@@ -136,7 +136,7 @@ namespace {
             }
 
             jint attachCurrentThreadRet;
-            if ((attachCurrentThreadRet = jvm->AttachCurrentThread(env_p, NULL)) != JNI_OK) {
+            if ((attachCurrentThreadRet = jvm->AttachCurrentThread(reinterpret_cast<void**>(env_p), NULL)) != JNI_OK) {
                 LOGE("Error calling AttachCurrentThread: %d", attachCurrentThreadRet);
                 assert(false && "Error calling AttachCurrentThread");
             }
