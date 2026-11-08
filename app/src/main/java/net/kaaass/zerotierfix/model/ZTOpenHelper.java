@@ -42,6 +42,27 @@ public class ZTOpenHelper extends DaoMaster.OpenHelper {
         return migrations;
     }
 
+    /**
+     * SQLite has no "ADD COLUMN IF NOT EXISTS", and older databases can already
+     * contain the column when a previous migration created the table with the
+     * current entity schema (see MigrationV21). Skipping an existing column makes
+     * the upgrade idempotent instead of failing with "duplicate column name".
+     */
+    private static boolean hasColumn(Database database, String table, String column) {
+        android.database.Cursor cursor = database.rawQuery("PRAGMA table_info(" + table + ")", null);
+        try {
+            int nameIndex = cursor.getColumnIndex("name");
+            while (cursor.moveToNext()) {
+                if (column.equalsIgnoreCase(cursor.getString(nameIndex))) {
+                    return true;
+                }
+            }
+        } finally {
+            cursor.close();
+        }
+        return false;
+    }
+
     private interface Migration {
         Integer getVersion();
 
@@ -59,7 +80,9 @@ public class ZTOpenHelper extends DaoMaster.OpenHelper {
 
         @Override
         public void runMigration(Database database) {
-            database.execSQL("ALTER TABLE NETWORK ADD COLUMN " + NetworkDao.Properties.LastActivated.columnName + " BOOLEAN NOT NULL DEFAULT FALSE ");
+            if (!hasColumn(database, "NETWORK", NetworkDao.Properties.LastActivated.columnName)) {
+                database.execSQL("ALTER TABLE NETWORK ADD COLUMN " + NetworkDao.Properties.LastActivated.columnName + " BOOLEAN NOT NULL DEFAULT FALSE ");
+            }
         }
     }
 
@@ -74,7 +97,9 @@ public class ZTOpenHelper extends DaoMaster.OpenHelper {
 
         @Override
         public void runMigration(Database database) {
-            database.execSQL("ALTER TABLE NETWORK_CONFIG ADD COLUMN " + NetworkConfigDao.Properties.DnsMode.columnName + " INTEGER NOT NULL DEFAULT 0 ");
+            if (!hasColumn(database, "NETWORK_CONFIG", NetworkConfigDao.Properties.DnsMode.columnName)) {
+                database.execSQL("ALTER TABLE NETWORK_CONFIG ADD COLUMN " + NetworkConfigDao.Properties.DnsMode.columnName + " INTEGER NOT NULL DEFAULT 0 ");
+            }
         }
     }
 
@@ -119,7 +144,11 @@ public class ZTOpenHelper extends DaoMaster.OpenHelper {
 
         @Override
         public void runMigration(Database database) {
-            database.execSQL("ALTER TABLE MOON_ORBIT ADD COLUMN " + MoonOrbitDao.Properties.FromFile.columnName + " INTEGER NOT NULL DEFAULT 0 ");
+            // MigrationV21 creates MOON_ORBIT from the current entity schema, which
+            // already contains FROM_FILE, so this ALTER must be skipped in that case.
+            if (!hasColumn(database, "MOON_ORBIT", MoonOrbitDao.Properties.FromFile.columnName)) {
+                database.execSQL("ALTER TABLE MOON_ORBIT ADD COLUMN " + MoonOrbitDao.Properties.FromFile.columnName + " INTEGER NOT NULL DEFAULT 0 ");
+            }
         }
     }
 }

@@ -168,4 +168,11 @@
     <string name="preferences_network_encrypted_hello_summary">Encrypts peer handshakes end-to-end. Requires a network controller that supports it, and adds a small CPU overhead. Reconnect for this change to take effect.</string>
     <string name="preferences_network_low_bandwidth">Low Bandwidth Mode</string>
     <string name="preferences_network_low_bandwidth_summary">Reduces keep-alives and path sensing for metered or battery-constrained connections. Slightly slower path discovery. Reconnect for this change to take effect.</string>
+
+    <!-- Crash report screen -->
+    <string name="crash_report_title">The app crashed during its last start. Copy the report below and send it to the developer.</string>
+    <string name="crash_report_copy">Copy report</string>
+    <string name="crash_report_copied">Report copied</string>
+    <string name="crash_report_restart">Clear and restart</string>
+    <string name="crash_report_reopen">Please reopen the app from the home screen</string>
 </resources>

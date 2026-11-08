@@ -54,6 +54,10 @@
         <activity
             android:name=".ui.PeerListActivity"
             android:label="@string/peer_list" />
+        <activity
+            android:name=".CrashReportActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.DeviceDefault.Light" />
 
         <receiver
             android:name=".service.StartupReceiver"

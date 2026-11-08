@@ -166,4 +166,11 @@
     <string name="preferences_network_encrypted_hello_summary">对节点间握手进行端到端加密。需要网络控制器支持，并会带来少量 CPU 开销。更改后需重新连接生效。</string>
     <string name="preferences_network_low_bandwidth">低带宽模式</string>
     <string name="preferences_network_low_bandwidth_summary">减少保活与路径探测，适用于按流量计费或电量受限的连接，路径发现会稍慢。更改后需重新连接生效。</string>
+
+    <!-- 崩溃报告界面 -->
+    <string name="crash_report_title">应用上次启动时崩溃了。请复制下面的报告并发送给开发者。</string>
+    <string name="crash_report_copy">复制报告</string>
+    <string name="crash_report_copied">报告已复制</string>
+    <string name="crash_report_restart">清除并重启</string>
+    <string name="crash_report_reopen">请从桌面重新打开应用</string>
 </resources>

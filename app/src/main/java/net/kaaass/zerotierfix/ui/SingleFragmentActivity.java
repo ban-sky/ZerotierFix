@@ -42,6 +42,12 @@ public abstract class SingleFragmentActivity extends AppCompatActivity {
 
     @Override
     public void onCreate(Bundle bundle) {
+        // 上次启动崩溃过：先让 CrashReportActivity 展示堆栈，别继续走正常界面
+        if (net.kaaass.zerotierfix.CrashReporter.hasReport(this)) {
+            finish();
+            return;
+        }
+
         // 启动画面主题需要在 super.onCreate 之前安装
         TypedValue splashTheme = new TypedValue();
         boolean hasSplashTheme = getTheme().resolveAttribute(R.attr.postSplashScreenTheme, splashTheme, true);
