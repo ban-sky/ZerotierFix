@@ -87,6 +87,8 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
     public static final String ZT1_USE_DEFAULT_ROUTE = "com.zerotier.one.use_default_route";
     private static final String[] DISALLOWED_APPS = {"com.android.vending"};
     private static final String TAG = "ZT1_Service";
+    private static final long JOIN_TIMEOUT_MS = 3000L;
+    private static final java.util.concurrent.atomic.AtomicLong NODE_SEQUENCE = new java.util.concurrent.atomic.AtomicLong();
     private static final int ZT_NOTIFICATION_TAG = 5919812;
     private final IBinder mBinder = new ZeroTierBinder();
     private final DataStore dataStore = new DataStore(this);
@@ -360,7 +362,9 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
                     var prefs = PreferenceManager.getDefaultSharedPreferences(this);
                     boolean encryptedHello = prefs.getBoolean(Constants.PREF_NETWORK_ENCRYPTED_HELLO, false);
                     boolean lowBandwidth = prefs.getBoolean(Constants.PREF_NETWORK_LOW_BANDWIDTH, false);
-                    this.node = new Node(System.currentTimeMillis());
+                    // 同毫秒内创建两个节点会导致 nodeMap 冲突/误删，附加自增序号保证唯一
+                    long nodeId = System.currentTimeMillis() * 1000L + (NODE_SEQUENCE.getAndIncrement() % 1000L);
+                    this.node = new Node(nodeId);
                     var result = this.node.init(dataStore, dataStore, this.udpCom, this, this.tunTapAdapter, this, null,
                             encryptedHello, lowBandwidth);
 
@@ -368,6 +372,13 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
                         Log.d(TAG, "ZeroTierOne Node Initialized");
                     } else {
                         Log.e(TAG, "Error starting ZT1 Node: " + result);
+                        // 初始化失败时释放半初始化的节点，避免 native 线程/套接字泄漏
+                        try {
+                            this.node.close();
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to close partially initialized node", e);
+                        }
+                        this.node = null;
                         return START_NOT_STICKY;
                     }
                     this.onNodeStatusRequest(null);
@@ -432,41 +443,51 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
         }
         if (this.udpThread != null && this.udpThread.isAlive()) {
             this.udpThread.interrupt();
-            try {
-                this.udpThread.join();
-            } catch (InterruptedException ignored) {
+            if (this.udpThread != Thread.currentThread()) {
+                try {
+                    this.udpThread.join(JOIN_TIMEOUT_MS);
+                } catch (InterruptedException ignored) {
+                }
             }
             this.udpThread = null;
         }
         if (this.tunTapAdapter != null && this.tunTapAdapter.isRunning()) {
             this.tunTapAdapter.interrupt();
-            try {
-                this.tunTapAdapter.join();
-            } catch (InterruptedException ignored) {
+            if (this.tunTapAdapter != Thread.currentThread()) {
+                try {
+                    this.tunTapAdapter.join(JOIN_TIMEOUT_MS);
+                } catch (InterruptedException ignored) {
+                }
             }
             this.tunTapAdapter = null;
         }
         if (this.vpnThread != null && this.vpnThread.isAlive()) {
             this.vpnThread.interrupt();
-            try {
-                this.vpnThread.join();
-            } catch (InterruptedException ignored) {
+            if (this.vpnThread != Thread.currentThread()) {
+                try {
+                    this.vpnThread.join(JOIN_TIMEOUT_MS);
+                } catch (InterruptedException ignored) {
+                }
             }
             this.vpnThread = null;
         }
         if (this.v4MulticastScanner != null) {
             this.v4MulticastScanner.interrupt();
-            try {
-                this.v4MulticastScanner.join();
-            } catch (InterruptedException ignored) {
+            if (this.v4MulticastScanner != Thread.currentThread()) {
+                try {
+                    this.v4MulticastScanner.join(JOIN_TIMEOUT_MS);
+                } catch (InterruptedException ignored) {
+                }
             }
             this.v4MulticastScanner = null;
         }
         if (this.v6MulticastScanner != null) {
             this.v6MulticastScanner.interrupt();
-            try {
-                this.v6MulticastScanner.join();
-            } catch (InterruptedException ignored) {
+            if (this.v6MulticastScanner != Thread.currentThread()) {
+                try {
+                    this.v6MulticastScanner.join(JOIN_TIMEOUT_MS);
+                } catch (InterruptedException ignored) {
+                }
             }
             this.v6MulticastScanner = null;
         }
@@ -793,9 +814,11 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
         // 重启 TUN TAP
         if (this.tunTapAdapter.isRunning()) {
             this.tunTapAdapter.interrupt();
-            try {
-                this.tunTapAdapter.join();
-            } catch (InterruptedException ignored) {
+            if (this.tunTapAdapter != Thread.currentThread()) {
+                try {
+                    this.tunTapAdapter.join(JOIN_TIMEOUT_MS);
+                } catch (InterruptedException ignored) {
+                }
             }
         }
         this.tunTapAdapter.clearRouteMap();

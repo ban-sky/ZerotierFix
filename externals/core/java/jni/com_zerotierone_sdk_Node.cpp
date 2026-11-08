@@ -787,12 +787,16 @@ namespace {
     {
         ZeroTier::Mutex::Lock lock(nodeMapMutex);
         NodeMap::iterator found = nodeMap.find(nodeId);
-
-        assert(found != nodeMap.end());
+        if (found == nodeMap.end()) {
+            LOGE("findNode: unknown node id %lld", (long long)nodeId);
+            return NULL;
+        }
 
         JniRef *ref = found->second;
-
-        assert(ref);
+        if (!ref) {
+            LOGE("findNode: node id %lld has no JniRef", (long long)nodeId);
+            return NULL;
+        }
 
         return ref->node;
     }

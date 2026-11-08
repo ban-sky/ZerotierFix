@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     com_zerotier_sdk_Node
  * Method:    node_init
- * Signature: (JLcom/zerotier/sdk/DataStoreGetListener;Lcom/zerotier/sdk/DataStorePutListener;Lcom/zerotier/sdk/PacketSender;Lcom/zerotier/sdk/EventListener;Lcom/zerotier/sdk/VirtualNetworkFrameListener;Lcom/zerotier/sdk/VirtualNetworkConfigListener;Lcom/zerotier/sdk/PathChecker;)Lcom/zerotier/sdk/ResultCode;
+ * Signature: (JLcom/zerotier/sdk/DataStoreGetListener;Lcom/zerotier/sdk/DataStorePutListener;Lcom/zerotier/sdk/PacketSender;Lcom/zerotier/sdk/EventListener;Lcom/zerotier/sdk/VirtualNetworkFrameListener;Lcom/zerotier/sdk/VirtualNetworkConfigListener;Lcom/zerotier/sdk/PathChecker;ZZ)Lcom/zerotier/sdk/ResultCode;
  */
 JNIEXPORT jobject JNICALL Java_com_zerotier_sdk_Node_node_1init
-  (JNIEnv *, jobject, jlong, jobject, jobject, jobject, jobject, jobject, jobject, jobject);
+  (JNIEnv *, jobject, jlong, jobject, jobject, jobject, jobject, jobject, jobject, jobject, jboolean, jboolean);
 
 /*
  * Class:     com_zerotier_sdk_Node

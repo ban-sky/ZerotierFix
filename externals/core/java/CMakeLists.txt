@@ -75,8 +75,13 @@ endif()
 
 set(link_libs )
 
+# Android: enable the same kind of hardening the APPLE branch above uses.
+# Stack protector, fortified libc calls and PIE plus a RELRO/now binding keep
+# memory-corruption bugs in the native core harder to turn into code execution.
 if(ANDROID)
-    set(link_libs ${link_libs} log)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong -fPIE -D_FORTIFY_SOURCE=2")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstack-protector-strong -fPIE -D_FORTIFY_SOURCE=2")
+    set(link_libs ${link_libs} log -Wl,-z,relro -Wl,-z,now)
 endif()
 
 if(WIN32)

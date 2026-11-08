@@ -399,6 +399,10 @@ public class TunTapAdapter implements VirtualNetworkFrameListener {
     @Override
     public void onVirtualNetworkFrame(long networkId, long srcMac, long destMac, long etherType,
                                       long vlanId, byte[] frameData) {
+        if (frameData == null || frameData.length < 14) {
+            Log.w(TAG, "Dropping malformed frame of length " + (frameData == null ? -1 : frameData.length));
+            return;
+        }
         DebugLog.d(TAG, "Got Virtual Network Frame. " +
                 " Network ID: " + StringUtils.networkIdToString(networkId) +
                 " Source MAC: " + StringUtils.macAddressToString(srcMac) +
@@ -411,11 +415,17 @@ public class TunTapAdapter implements VirtualNetworkFrameListener {
             Log.e(TAG, "no in/out streams");
         } else if (etherType == ARP_PACKET) {
             // 收到 ARP 包。更新 ARP 表，若需要则进行应答
+            // 该回调运行在 JNI 调用栈内，任何未捕获异常都会终止 UDP 接收线程
+            try {
             Log.d(TAG, "Got ARP Packet");
             var arpReply = this.arpTable.processARPPacket(frameData);
             if (arpReply != null && arpReply.getDestMac() != 0 && arpReply.getDestAddress() != null) {
                 // 获取本地 V4 地址
                 var networkConfig = this.node.networkConfig(networkId);
+                if (networkConfig == null) {
+                    Log.e(TAG, "No network config for " + StringUtils.networkIdToString(networkId));
+                    return;
+                }
                 InetAddress localV4Address = null;
                 for (var address : networkConfig.getAssignedAddresses()) {
                     if (address.getAddress() instanceof Inet4Address) {
@@ -439,6 +449,9 @@ public class TunTapAdapter implements VirtualNetworkFrameListener {
                     Log.d(TAG, "ARP Reply Sent!");
                     this.ztService.setNextBackgroundTaskDeadline(nextDeadline[0]);
                 }
+            }
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Failed to handle ARP frame", e);
             }
         } else if (etherType == IPV4_PACKET) {
             // 收到 IPv4 包。根据需要发送至 TUN
