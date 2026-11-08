@@ -330,7 +330,10 @@ public class NetworkListFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "NetworkListFragment.onCreate");
         super.onCreate(savedInstanceState);
-        PreferenceManager.setDefaultValues(getActivity(), R.xml.preferences, false);
+        // R.xml.preferences 里混用了 framework 与 androidx 的 Preference 类，
+        // 必须用 androidx 的 inflater 写入默认值；android.preference 的解析器
+        // 会在 <androidx.preference.SwitchPreferenceCompat> 上抛 ClassCastException。
+        androidx.preference.PreferenceManager.setDefaultValues(getActivity(), R.xml.preferences, false);
         setHasOptionsMenu(true);
 
         // 获取 ViewModel
