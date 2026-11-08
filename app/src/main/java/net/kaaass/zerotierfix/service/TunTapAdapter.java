@@ -1,7 +1,6 @@
 package net.kaaass.zerotierfix.service;
 
 import android.os.ParcelFileDescriptor;
-import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
 
 import com.zerotier.sdk.Node;
