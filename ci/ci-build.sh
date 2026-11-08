@@ -67,11 +67,13 @@ if [ -x "$APKSIGNER" ]; then
 else
   echo "apksigner not found, skipping verification" >&2
 fi
+echo "[ci] apksigner verification finished (exit $?)"
 
 # Android 15+ devices may use 16 KB pages: the arm64 native library and the
 # uncompressed .so entries in the APK must be 16 KB aligned, otherwise the
 # package fails to install on those devices (and Play rejects it).
 READELF="$SDK_ROOT/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+echo "[ci] readelf: $READELF exist=$([ -x "$READELF" ] && echo yes || echo no)"
 if [ -x "$READELF" ]; then
   for so in core/build/intermediates/cxx/*/*/obj/arm64-v8a/libZeroTierOneJNI.so; do
     [ -f "$so" ] || continue
@@ -85,5 +87,6 @@ if [ -x "$READELF" ]; then
 fi
 
 
+echo "[ci] writing checksums"
 (cd dist && sha256sum ./*.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
 ls -lh dist
