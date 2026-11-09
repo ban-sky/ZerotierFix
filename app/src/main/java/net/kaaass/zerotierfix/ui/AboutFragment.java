@@ -68,20 +68,7 @@ public class AboutFragment extends Fragment {
 
         final android.app.Activity activity = requireActivity();
         new Thread(() -> {
-            final UpdateResult result;
-            try {
-                JSONObject release = fetchLatestRelease();
-                if (release == null) {
-                    result = UpdateResult.noRelease();
-                } else {
-                    result = UpdateResult.of(
-                            release.optString("tag_name", ""),
-                            release.optString("html_url", RELEASES_URL));
-                }
-            } catch (Exception e) {
-                result = UpdateResult.error(e.getMessage() == null
-                        ? e.getClass().getSimpleName() : e.getMessage());
-            }
+            final UpdateResult result = queryLatestRelease();
             activity.runOnUiThread(() -> {
                 if (!isAdded()) {
                     return;
@@ -111,6 +98,21 @@ public class AboutFragment extends Fragment {
         } else {
             this.statusView.setText(getString(R.string.about_up_to_date, BuildConfig.VERSION_NAME));
             this.releaseButton.setVisibility(View.GONE);
+        }
+    }
+
+    private UpdateResult queryLatestRelease() {
+        try {
+            JSONObject release = fetchLatestRelease();
+            if (release == null) {
+                return UpdateResult.noRelease();
+            }
+            return UpdateResult.of(
+                    release.optString("tag_name", ""),
+                    release.optString("html_url", RELEASES_URL));
+        } catch (Exception e) {
+            return UpdateResult.error(e.getMessage() == null
+                    ? e.getClass().getSimpleName() : e.getMessage());
         }
     }
 
