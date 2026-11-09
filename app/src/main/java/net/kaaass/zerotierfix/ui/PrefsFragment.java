@@ -117,6 +117,15 @@ public class PrefsFragment extends PreferenceFragmentCompat implements SharedPre
         this.prefPlanetUseCustom = findPreference(Constants.PREF_PLANET_USE_CUSTOM);
         this.prefSetPlanetFile = findPreference(Constants.PREF_SET_PLANET_FILE);
 
+        // 关于页
+        Preference prefAbout = findPreference("about");
+        if (prefAbout != null) {
+            prefAbout.setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(requireContext(), AboutActivity.class));
+                return true;
+            });
+        }
+
         // Plane 配置开关
         Objects.requireNonNull(this.prefPlanetUseCustom).setOnPreferenceClickListener(preference -> {
             // 判断状态

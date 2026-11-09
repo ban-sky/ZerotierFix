@@ -175,4 +175,23 @@
     <string name="crash_report_copied">Report copied</string>
     <string name="crash_report_restart">Clear and restart</string>
     <string name="crash_report_reopen">Please reopen the app from the home screen</string>
+
+    <!-- About screen -->
+    <string name="about">About</string>
+    <string name="about_summary">Project home page and update check</string>
+    <string name="about_version_format">Version %1$s (%2$d)</string>
+    <string name="about_description">An Android client for ZeroTier One 1.16.2, with a Material 3 interface.</string>
+    <string name="about_project">Project</string>
+    <string name="about_project_url">https://github.com/ban-sky/ZerotierFix</string>
+    <string name="about_update">Updates</string>
+    <string name="about_update_idle">Check GitHub Releases for a newer build.</string>
+    <string name="about_check_update">Check for updates</string>
+    <string name="about_checking">Checking…</string>
+    <string name="about_up_to_date">You are up to date (%1$s)</string>
+    <string name="about_new_version">New version %1$s is available</string>
+    <string name="about_no_release">No release has been published yet</string>
+    <string name="about_check_failed">Update check failed: %1$s</string>
+    <string name="about_open_release">Open release page</string>
+    <string name="about_no_browser">No browser available</string>
+    <string name="about_license">ZerotierFix is distributed under the GNU GPLv3. The bundled ZeroTier One 1.16.2 core is licensed under the Mozilla Public License 2.0.</string>
 </resources>

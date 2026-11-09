@@ -55,6 +55,9 @@
             android:name=".ui.PeerListActivity"
             android:label="@string/peer_list" />
         <activity
+            android:name=".ui.AboutActivity"
+            android:label="@string/about" />
+        <activity
             android:name=".CrashReportActivity"
             android:exported="false"
             android:theme="@android:style/Theme.DeviceDefault.Light" />
