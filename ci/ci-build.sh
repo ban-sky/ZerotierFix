@@ -11,6 +11,25 @@ fi
 echo "Android SDK: $SDK_ROOT"
 echo "Java: $(java -version 2>&1 | head -n 1)"
 
+# 可选：由仓库 secrets 注入的 keystore（base64）。设置后 debug/release 都用它签名，
+# 私钥不进仓库，同时每次构建签名一致、可以直接覆盖安装。
+KEYSTORE_TMP=""
+cleanup_keystore() {
+  if [ -n "$KEYSTORE_TMP" ] && [ -f "$KEYSTORE_TMP" ]; then
+    rm -f "$KEYSTORE_TMP"
+  fi
+}
+trap cleanup_keystore EXIT
+if [ -n "${ZT_KEYSTORE_BASE64:-}" ]; then
+  KEYSTORE_TMP="${RUNNER_TEMP:-/tmp}/zerotierfix-signing-$.jks"
+  printf '%s' "$ZT_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_TMP"
+  chmod 600 "$KEYSTORE_TMP"
+  export ZT_STORE_FILE="$KEYSTORE_TMP"
+  echo "[ci] signing with the keystore injected from repository secrets"
+else
+  echo "[ci] ZT_KEYSTORE_BASE64 not set; falling back to keystore/zerotierfix.jks or the debug key"
+fi
+
 NDK_VERSION="28.2.13676358"
 CMAKE_VERSION="3.22.1"
 
