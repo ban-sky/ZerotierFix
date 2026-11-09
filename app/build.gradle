@@ -7,6 +7,14 @@ plugins {
 // under app/src/main/java/net/kaaass/zerotierfix/model/ instead. If you change or add an entity,
 // regenerate them with greenDAO 3.3.0 on Gradle 7.x (schema version 22).
 
+// 固定签名用的 keystore（提交在仓库里，便于每次构建都能覆盖安装）。
+// 未提供时退回 AGP 默认 debug 签名，且 CI 不会发布未签名的 release 包。
+def signingKeystore = rootProject.file('keystore/zerotierfix.jks')
+if (!signingKeystore.exists()) {
+    signingKeystore = rootProject.file('keystore/zerotierfix.p12')
+}
+def hasSigningKeystore = signingKeystore.exists()
+
 android {
     namespace 'net.kaaass.zerotierfix'
     compileSdk rootProject.ext.compileSdkVersion
@@ -15,17 +23,36 @@ android {
         applicationId "net.kaaass.zerotierfix"
         minSdk rootProject.ext.minSdkVersion
         targetSdk rootProject.ext.targetSdkVersion
-        versionCode 19
-        versionName "2.1.0"
+        versionCode 20
+        versionName "2.1.1"
         multiDexEnabled true
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
+    signingConfigs {
+        if (hasSigningKeystore) {
+            fixed {
+                storeFile signingKeystore
+                storePassword project.findProperty('ZT_STORE_PASSWORD') ?: 'android'
+                keyAlias project.findProperty('ZT_KEY_ALIAS') ?: 'androiddebugkey'
+                keyPassword project.findProperty('ZT_KEY_PASSWORD') ?: 'android'
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            if (hasSigningKeystore) {
+                signingConfig signingConfigs.fixed
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (hasSigningKeystore) {
+                signingConfig signingConfigs.fixed
+            }
         }
     }
 

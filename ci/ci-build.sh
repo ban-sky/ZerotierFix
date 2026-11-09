@@ -67,16 +67,24 @@ VERSION_NAME="$(sed -n 's/.*versionName "\(.*\)".*/\1/p' app/build.gradle | head
 VERSION_NAME="${VERSION_NAME:-dev}"
 mkdir -p dist
 DEBUG_APK="app/build/outputs/apk/debug/app-debug.apk"
-RELEASE_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+RELEASE_APK="app/build/outputs/apk/release/app-release.apk"
+RELEASE_UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
 [ -f "$DEBUG_APK" ] || { echo "missing $DEBUG_APK" >&2; exit 1; }
 cp "$DEBUG_APK" "dist/ZerotierFix-$VERSION_NAME-debug.apk"
 if [ -f "$RELEASE_APK" ]; then
-  cp "$RELEASE_APK" "dist/ZerotierFix-$VERSION_NAME-release-unsigned.apk"
+  cp "$RELEASE_APK" "dist/ZerotierFix-$VERSION_NAME-release.apk"
+else
+  # 没有 keystore/zerotierfix.jks 时 AGP 只产出未签名 release 包，不发布它
+  echo "[ci] no signed release APK; the unsigned build is not published" >&2
+  rm -f "$RELEASE_UNSIGNED_APK"
 fi
-# Sanity check: the debug APK must be a validly signed, well-formed package.
+
+# 只发布签过名的包，并逐个校验签名
 APKSIGNER="$SDK_ROOT/build-tools/36.0.0/apksigner"
 if [ -x "$APKSIGNER" ]; then
-  "$APKSIGNER" verify --verbose "dist/ZerotierFix-$VERSION_NAME-debug.apk"
+  for apk in dist/*.apk; do
+    "$APKSIGNER" verify --verbose "$apk"
+  done
 else
   echo "apksigner not found, skipping verification" >&2
 fi
