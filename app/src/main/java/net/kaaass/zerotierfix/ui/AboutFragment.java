@@ -428,16 +428,20 @@ public class AboutFragment extends Fragment {
         downloading = false;
         cancelRequested = false;
         progressBar.setIndeterminate(false);
-        downloadPanel.setVisibility(View.GONE);
         checkButton.setEnabled(true);
         downloadButton.setVisibility(View.VISIBLE);
 
         if (error != null) {
+            // 失败时保留下载面板，把原因留在界面上。
+            downloadPanel.setVisibility(View.VISIBLE);
+            progressBar.setVisibility(View.GONE);
+            cancelButton.setVisibility(View.GONE);
             downloadStatus.setText(getString(R.string.about_download_failed, error));
             Toast.makeText(requireContext(), getString(R.string.about_download_failed, error),
                     Toast.LENGTH_LONG).show();
             return;
         }
+        downloadPanel.setVisibility(View.GONE);
         if (file == null) {
             // 用户取消
             Toast.makeText(requireContext(), R.string.about_download_cancelled,
