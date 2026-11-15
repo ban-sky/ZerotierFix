@@ -104,6 +104,21 @@
     <string name="peer_lat" translatable="false">%d ms</string>
     <string name="fail_retrieve_peer_list">Failed to retrieve peer info. Please check your network connection.</string>
     <string name="peer_relay">Relay</string>
+    <string name="peer_detail_open">Show peer details</string>
+    <string name="peer_path_count">%d paths</string>
+    <string name="peer_path_preferred">Preferred</string>
+    <string name="peer_path_last_send">last send %s</string>
+    <string name="peer_path_last_receive">last receive %s</string>
+    <string name="peer_path_never">never</string>
+    <string name="peer_path_unknown_address">unknown address</string>
+    <string name="peer_time_seconds">%d s ago</string>
+    <string name="peer_time_minutes">%d min ago</string>
+    <string name="peer_time_hours">%d h ago</string>
+    <string name="peer_time_days">%d d ago</string>
+    <string name="peer_copy_id">Copy node ID</string>
+    <string name="peer_id_copied">Node ID copied</string>
+    <string name="peer_no_paths">No direct path yet, traffic is relayed through a root server.</string>
+    <string name="peer_detail_hint">Reported live by this device for every peer it currently knows about.</string>
     <string name="click_to_add_network">Click + to add network</string>
     <string name="copy_network_id_to_clipboard">Copy Network ID to Clipboard</string>
     <string name="text_copied">Text copied</string>

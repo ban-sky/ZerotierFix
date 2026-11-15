@@ -32,6 +32,7 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 import lombok.ToString;
 
@@ -163,11 +164,45 @@ public class PeerListFragment extends Fragment {
             Snackbar.make(requireView(), R.string.fail_retrieve_peer_list, BaseTransientBottomBar.LENGTH_LONG).show();
             return;
         }
-        // 更新数据列表
+        // 更新数据列表：优先展示直连的节点，其次按延迟排序
         this.peerList.clear();
         Collections.addAll(this.peerList, peers);
+        this.peerList.sort(PeerListFragment::comparePeers);
         this.recyclerViewAdapter.notifyDataSetChanged();
         this.swipeRefreshLayout.setRefreshing(false);
+    }
+
+    /**
+     * 是否有首选路径（即是否直连）
+     */
+    private static boolean hasPreferredPath(Peer peer) {
+        PeerPhysicalPath[] paths = peer.getPaths();
+        if (paths == null) {
+            return false;
+        }
+        for (PeerPhysicalPath path : paths) {
+            if (path != null && path.isPreferred()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 直连优先，其次延迟小的优先，最后按节点地址排序，保证列表顺序稳定
+     */
+    private static int comparePeers(Peer left, Peer right) {
+        int leftDirect = hasPreferredPath(left) ? 0 : 1;
+        int rightDirect = hasPreferredPath(right) ? 0 : 1;
+        if (leftDirect != rightDirect) {
+            return Integer.compare(leftDirect, rightDirect);
+        }
+        int leftLatency = left.getLatency() > 0 ? left.getLatency() : Integer.MAX_VALUE;
+        int rightLatency = right.getLatency() > 0 ? right.getLatency() : Integer.MAX_VALUE;
+        if (leftLatency != rightLatency) {
+            return Integer.compare(leftLatency, rightLatency);
+        }
+        return Long.compare(left.getAddress(), right.getAddress());
     }
 
     /**
@@ -193,7 +228,7 @@ public class PeerListFragment extends Fragment {
         public void onBindViewHolder(final RecyclerViewAdapter.ViewHolder holder, int position) {
             Peer peer = mValues.get(position);
             holder.mItem = peer;
-            holder.mAddress.setText(Long.toHexString(peer.getAddress()));
+            holder.mAddress.setText(String.format(Locale.ROOT, "%010x", peer.getAddress()));
             holder.mRole.setText(peerRoleToString(peer.getRole()));
             // 客户端版本
             String clientVersion = getString(R.string.unknown_version);
@@ -218,6 +253,13 @@ public class PeerListFragment extends Fragment {
                 strPreferred = StringUtils.toString(preferred.getAddress());
             }
             holder.mPath.setText(strPreferred);
+            // 路径数量
+            int pathCount = peer.getPaths() == null ? 0 : peer.getPaths().length;
+            holder.mPathCount.setText(getString(R.string.peer_path_count, pathCount));
+            // 点击查看详情
+            holder.mView.setOnClickListener(v ->
+                    PeerDetailDialogFragment.newInstance(peer)
+                            .show(getChildFragmentManager(), PeerDetailDialogFragment.TAG));
         }
 
         @Override
@@ -233,6 +275,7 @@ public class PeerListFragment extends Fragment {
             public final TextView mVersion;
             public final TextView mLatency;
             public final TextView mPath;
+            public final TextView mPathCount;
             public Peer mItem;
 
             public ViewHolder(View view) {
@@ -243,6 +286,7 @@ public class PeerListFragment extends Fragment {
                 mVersion = view.findViewById(R.id.list_peer_ver);
                 mLatency = view.findViewById(R.id.list_peer_lat);
                 mPath = view.findViewById(R.id.list_peer_path);
+                mPathCount = view.findViewById(R.id.list_peer_paths);
             }
         }
     }
