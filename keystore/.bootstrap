@@ -1,3 +1,0 @@
-Temporary marker: the next CI build generates the release keystore and publishes
-its base64 as dist/zerotierfix-keystore.b64. Copy that file to
-keystore/zerotierfix.b64 and delete this marker.
