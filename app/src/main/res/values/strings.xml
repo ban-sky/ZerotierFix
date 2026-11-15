@@ -209,4 +209,9 @@
     <string name="about_open_release">Open release page</string>
     <string name="about_no_browser">No browser available</string>
     <string name="about_license">ZerotierFix is distributed under the GNU GPLv3. The bundled ZeroTier One 1.16.2 core is licensed under the Mozilla Public License 2.0.</string>
+    <string name="about_update_latest">Latest release %1$s · %2$s</string>
+    <string name="about_update_latest_nodate">Latest release %1$s</string>
+    <string name="about_download_update">Download update</string>
+    <string name="about_update_notes">New in this release:\n%1$s</string>
+    <string name="about_rate_limited">GitHub API rate limit reached, please try again later</string>
 </resources>

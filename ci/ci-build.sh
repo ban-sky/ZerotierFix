@@ -13,21 +13,41 @@ echo "Java: $(java -version 2>&1 | head -n 1)"
 
 # 可选：由仓库 secrets 注入的 keystore（base64）。设置后 debug/release 都用它签名，
 # 私钥不进仓库，同时每次构建签名一致、可以直接覆盖安装。
-KEYSTORE_TMP=""
+KEYSTORE_TMP="${RUNNER_TEMP:-/tmp}/zerotierfix-signing-keystore"
 cleanup_keystore() {
   if [ -n "$KEYSTORE_TMP" ] && [ -f "$KEYSTORE_TMP" ]; then
     rm -f "$KEYSTORE_TMP"
   fi
 }
 trap cleanup_keystore EXIT
-if [ -n "${ZT_KEYSTORE_BASE64:-}" ]; then
-  KEYSTORE_TMP="${RUNNER_TEMP:-/tmp}/zerotierfix-signing-$.jks"
-  printf '%s' "$ZT_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_TMP"
+
+# 签名来源优先级：
+#   1. ZT_KEYSTORE_BASE64（仓库 secret，配置后优先）
+#   2. keystore/zerotierfix.b64（仓库内公开的发布签名，保证每次构建签名一致、可覆盖安装）
+#   3. ZT_BOOTSTRAP_KEYSTORE=1 时现场生成一份，并把 base64 放进 dist 供提交
+KEYSTORE_B64="${ZT_KEYSTORE_BASE64:-}"
+if [ -z "$KEYSTORE_B64" ] && [ -s keystore/zerotierfix.b64 ]; then
+  KEYSTORE_B64="$(tr -d ' \r\n' < keystore/zerotierfix.b64)"
+  echo "[ci] signing with the keystore committed at keystore/zerotierfix.b64"
+fi
+if [ -z "$KEYSTORE_B64" ] && { [ "${ZT_BOOTSTRAP_KEYSTORE:-0}" = "1" ] || [ -f keystore/.bootstrap ]; }; then
+  mkdir -p dist
+  KEYTOOL="${JAVA_HOME:+$JAVA_HOME/bin/}keytool"
+  [ -x "$KEYTOOL" ] || KEYTOOL=keytool
+  "$KEYTOOL" -genkeypair -v -keystore "$KEYSTORE_TMP" -storetype PKCS12 \
+    -storepass zerotierfix -keypass zerotierfix -alias zerotierfix \
+    -keyalg RSA -keysize 4096 -validity 10000 \
+    -dname "CN=ZerotierFix, O=ban-sky, C=CN" > /dev/null
+  base64 "$KEYSTORE_TMP" | tr -d '\n' > dist/zerotierfix-keystore.b64
+  KEYSTORE_B64="$(cat dist/zerotierfix-keystore.b64)"
+  echo "[ci] generated a bootstrap keystore -> dist/zerotierfix-keystore.b64"
+fi
+if [ -n "$KEYSTORE_B64" ]; then
+  printf '%s' "$KEYSTORE_B64" | base64 -d > "$KEYSTORE_TMP"
   chmod 600 "$KEYSTORE_TMP"
   export ZT_STORE_FILE="$KEYSTORE_TMP"
-  echo "[ci] signing with the keystore injected from repository secrets"
 else
-  echo "[ci] ZT_KEYSTORE_BASE64 not set; falling back to keystore/zerotierfix.jks or the debug key"
+  echo "[ci] no keystore configured; falling back to the debug key (signature differs every run)"
 fi
 
 NDK_VERSION="28.2.13676358"

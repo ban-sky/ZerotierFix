@@ -207,4 +207,9 @@
     <string name="about_open_release">打开发布页</string>
     <string name="about_no_browser">没有可用的浏览器</string>
     <string name="about_license">ZerotierFix 以 GNU GPLv3 发布。内置的 ZeroTier One 1.16.2 内核使用 Mozilla Public License 2.0 许可。</string>
+    <string name="about_update_latest">最新发布 %1$s · %2$s</string>
+    <string name="about_update_latest_nodate">最新发布 %1$s</string>
+    <string name="about_download_update">下载更新</string>
+    <string name="about_update_notes">更新内容：\n%1$s</string>
+    <string name="about_rate_limited">GitHub 接口限流，请稍后再试</string>
 </resources>

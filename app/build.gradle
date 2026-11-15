@@ -45,8 +45,8 @@ android {
         applicationId "net.kaaass.zerotierfix"
         minSdk rootProject.ext.minSdkVersion
         targetSdk rootProject.ext.targetSdkVersion
-        versionCode 22
-        versionName "2.2.0"
+        versionCode 23
+        versionName "2.2.1"
         multiDexEnabled true
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
@@ -56,9 +56,15 @@ android {
         if (hasSigningKeystore) {
             fixed {
                 storeFile signingKeystore
-                storePassword readSigningValue('ZT_STORE_PASSWORD', 'android')
-                keyAlias readSigningValue('ZT_KEY_ALIAS', 'androiddebugkey')
-                keyPassword readSigningValue('ZT_KEY_PASSWORD', 'android')
+                storeType readSigningValue('ZT_STORE_TYPE', 'PKCS12')
+                storePassword readSigningValue('ZT_STORE_PASSWORD', 'zerotierfix')
+                keyAlias readSigningValue('ZT_KEY_ALIAS', 'zerotierfix')
+                keyPassword readSigningValue('ZT_KEY_PASSWORD', 'zerotierfix')
+                // v1 让 Android 6 及更老的系统能装，v2/v3 供 7.0+ 与新系统校验；
+                // 三个都开才能保证从任意旧版本覆盖安装。
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
             }
         }
     }
