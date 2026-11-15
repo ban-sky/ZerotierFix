@@ -1,9 +1,15 @@
 package net.kaaass.zerotierfix.ui;
 
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -13,9 +19,11 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
 
 import net.kaaass.zerotierfix.BuildConfig;
 import net.kaaass.zerotierfix.R;
@@ -24,7 +32,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -38,10 +49,11 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 /**
- * 关于页：版本信息、项目地址、检查更新。
+ * 关于页：版本信息、项目地址、检查更新，并支持在应用内直接下载并安装新版本。
  *
- * <p>更新检查直接读 GitHub 的 latest release 接口，展示版本号、发布时间、更新说明，
- * 并在存在 APK 资源时提供「下载更新」直达链接。
+ * <p>更新流程：GitHub latest release 接口 → 取 APK 资源地址 → 下载到 cache/updates/
+ * → 校验安装包签名与本应用一致 → 通过 FileProvider 交给系统安装器。Android 8.0+
+ * 需要「安装未知应用」授权，未授权时会跳系统设置并在返回后自动继续安装。
  */
 public class AboutFragment extends Fragment {
     private static final String PROJECT_URL = "https://github.com/ban-sky/ZerotierFix";
@@ -49,6 +61,7 @@ public class AboutFragment extends Fragment {
     private static final String LATEST_RELEASE_API =
             "https://api.github.com/repos/ban-sky/ZerotierFix/releases/latest";
     private static final int MAX_NOTES_LENGTH = 700;
+    private static final String UPDATE_DIR = "updates";
 
     private TextView statusView;
     private TextView latestView;
@@ -56,7 +69,20 @@ public class AboutFragment extends Fragment {
     private MaterialButton checkButton;
     private MaterialButton downloadButton;
     private MaterialButton openReleaseButton;
+
+    private View downloadPanel;
+    private LinearProgressIndicator progressBar;
+    private TextView downloadStatus;
+    private MaterialButton cancelButton;
+
     private boolean checkStarted;
+    private boolean downloading;
+    private volatile boolean cancelRequested;
+    private Thread downloadThread;
+
+    private String latestApkUrl;
+    private String latestApkName;
+    private File pendingInstallFile;
 
     @Nullable
     @Override
@@ -84,13 +110,14 @@ public class AboutFragment extends Fragment {
         downloadButton = view.findViewById(R.id.about_download_update);
         openReleaseButton = view.findViewById(R.id.about_open_release);
 
+        downloadPanel = view.findViewById(R.id.about_download_panel);
+        progressBar = view.findViewById(R.id.about_download_progress);
+        downloadStatus = view.findViewById(R.id.about_download_status);
+        cancelButton = view.findViewById(R.id.about_cancel_download);
+
         checkButton.setOnClickListener(v -> checkForUpdates());
-        downloadButton.setOnClickListener(v -> {
-            Object tag = downloadButton.getTag();
-            if (tag instanceof String) {
-                openUrl((String) tag);
-            }
-        });
+        downloadButton.setOnClickListener(v -> startDownload());
+        cancelButton.setOnClickListener(v -> cancelDownload());
         openReleaseButton.setOnClickListener(v -> {
             Object tag = openReleaseButton.getTag();
             openUrl(tag instanceof String ? (String) tag : RELEASES_URL);
@@ -103,7 +130,27 @@ public class AboutFragment extends Fragment {
         }
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // 用户从「安装未知应用」设置页返回后，如果已授权就继续安装。
+        if (pendingInstallFile != null && isInstallAllowed()) {
+            File file = pendingInstallFile;
+            pendingInstallFile = null;
+            installApk(file);
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        cancelDownload();
+        super.onDestroyView();
+    }
+
     private void checkForUpdates() {
+        if (downloading) {
+            return;
+        }
         statusView.setText(R.string.about_checking);
         checkButton.setEnabled(false);
         latestView.setVisibility(View.GONE);
@@ -135,7 +182,8 @@ public class AboutFragment extends Fragment {
     }
 
     private UpdateResult queryLatestRelease() throws IOException, JSONException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(LATEST_RELEASE_API).openConnection();
+        HttpURLConnection connection =
+                (HttpURLConnection) new URL(LATEST_RELEASE_API).openConnection();
         try {
             connection.setConnectTimeout(10_000);
             connection.setReadTimeout(10_000);
@@ -148,7 +196,7 @@ public class AboutFragment extends Fragment {
             if (code == HttpURLConnection.HTTP_NOT_FOUND) {
                 return UpdateResult.noRelease();
             }
-            if (code == 403) {
+            if (code == 403 || code == 429) {
                 // GitHub 对匿名请求限流，返回 403 或 429。
                 return UpdateResult.failure(getString(R.string.about_rate_limited));
             }
@@ -192,8 +240,6 @@ public class AboutFragment extends Fragment {
                     }
                 }
             }
-        } else {
-            apkUrl = htmlUrl;
         }
         return UpdateResult.success(tag, htmlUrl, publishedAt, notes, apkUrl, apkName);
     }
@@ -222,6 +268,9 @@ public class AboutFragment extends Fragment {
             return;
         }
 
+        latestApkUrl = result.apkUrl;
+        latestApkName = result.apkName;
+
         String latest = result.latestVersion == null ? "" : result.latestVersion;
         String published = formatDate(result.publishedAt);
         if (TextUtils.isEmpty(published)) {
@@ -244,11 +293,10 @@ public class AboutFragment extends Fragment {
                 ? getString(R.string.about_new_version, latest)
                 : getString(R.string.about_up_to_date, BuildConfig.VERSION_NAME));
 
-        if (newer && !TextUtils.isEmpty(result.apkUrl)) {
-            downloadButton.setTag(result.apkUrl);
-            downloadButton.setText(TextUtils.isEmpty(result.apkName)
-                    ? getString(R.string.about_download_update)
-                    : result.apkName);
+        if (!TextUtils.isEmpty(result.apkUrl)) {
+            downloadButton.setText(newer
+                    ? R.string.about_install_update
+                    : R.string.about_reinstall);
             downloadButton.setVisibility(View.VISIBLE);
         } else {
             downloadButton.setVisibility(View.GONE);
@@ -256,6 +304,254 @@ public class AboutFragment extends Fragment {
 
         openReleaseButton.setTag(result.releaseUrl);
         openReleaseButton.setVisibility(View.VISIBLE);
+    }
+
+    private void startDownload() {
+        if (downloading || TextUtils.isEmpty(latestApkUrl)) {
+            return;
+        }
+        if (!isAdded() || getContext() == null) {
+            return;
+        }
+        downloading = true;
+        cancelRequested = false;
+        checkButton.setEnabled(false);
+        downloadButton.setVisibility(View.GONE);
+        downloadPanel.setVisibility(View.VISIBLE);
+        progressBar.setIndeterminate(true);
+        progressBar.setVisibility(View.VISIBLE);
+        cancelButton.setVisibility(View.VISIBLE);
+        downloadStatus.setText(R.string.about_download_starting);
+
+        Context context = requireContext().getApplicationContext();
+        String url = latestApkUrl;
+        String fileName = safeFileName(latestApkName);
+
+        downloadThread = new Thread(() -> {
+            File downloaded = null;
+            String error = null;
+            try {
+                downloaded = downloadApk(context, url, fileName);
+            } catch (IOException e) {
+                error = fileErrorMessage(e);
+            }
+            File finalFile = downloaded;
+            String finalError = error;
+            if (finalFile != null && !verifySigner(context, finalFile)) {
+                // 签名对不上就不是给这个应用准备的包，删掉更安全。
+                //noinspection ResultOfMethodCallIgnored
+                finalFile.delete();
+                finalFile = null;
+                finalError = getString(R.string.about_signature_mismatch);
+            }
+            File resultFile = finalFile;
+            String resultError = finalError;
+            postToUi(() -> onDownloadFinished(resultFile, resultError));
+        }, "about-update-download");
+        downloadThread.start();
+    }
+
+    private File downloadApk(Context context, String url, String fileName) throws IOException {
+        File dir = new File(context.getCacheDir(), UPDATE_DIR);
+        if (!dir.exists() && !dir.mkdirs()) {
+            throw new IOException("cannot create " + dir.getAbsolutePath());
+        }
+        clearOldDownloads(dir);
+        File target = new File(dir, fileName);
+        File temp = new File(dir, fileName + ".part");
+
+        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        try {
+            connection.setConnectTimeout(15_000);
+            connection.setReadTimeout(30_000);
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestProperty("User-Agent",
+                    "ZerotierFix/" + BuildConfig.VERSION_NAME);
+            connection.setRequestProperty("Accept", "application/octet-stream");
+            int code = connection.getResponseCode();
+            if (code != HttpURLConnection.HTTP_OK) {
+                throw new IOException("HTTP " + code);
+            }
+            long total = connection.getContentLength();
+            postToUi(() -> {
+                progressBar.setIndeterminate(total <= 0);
+                if (total > 0) {
+                    progressBar.setMax(100);
+                }
+                downloadStatus.setText(getString(R.string.about_download_starting));
+            });
+
+            byte[] buffer = new byte[16 * 1024];
+            long written = 0;
+            int lastPercent = -1;
+            try (InputStream raw = connection.getInputStream();
+                 BufferedInputStream input = new BufferedInputStream(raw);
+                 FileOutputStream output = new FileOutputStream(temp)) {
+                int read;
+                while ((read = input.read(buffer)) != -1) {
+                    if (cancelRequested) {
+                        break;
+                    }
+                    output.write(buffer, 0, read);
+                    written += read;
+                    if (total > 0) {
+                        int percent = (int) Math.min(100, written * 100 / total);
+                        if (percent != lastPercent) {
+                            lastPercent = percent;
+                            long finalWritten = written;
+                            int finalPercent = percent;
+                            postToUi(() -> {
+                                progressBar.setProgress(finalPercent);
+                                downloadStatus.setText(getString(R.string.about_download_progress,
+                                        finalPercent, formatSize(finalWritten),
+                                        formatSize(total)));
+                            });
+                        }
+                    }
+                }
+            }
+            if (cancelRequested) {
+                //noinspection ResultOfMethodCallIgnored
+                temp.delete();
+                return null;
+            }
+            if (!temp.renameTo(target)) {
+                throw new IOException("cannot rename download");
+            }
+            return target;
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private void onDownloadFinished(@Nullable File file, @Nullable String error) {
+        downloading = false;
+        cancelRequested = false;
+        progressBar.setIndeterminate(false);
+        downloadPanel.setVisibility(View.GONE);
+        checkButton.setEnabled(true);
+        downloadButton.setVisibility(View.VISIBLE);
+
+        if (error != null) {
+            downloadStatus.setText(getString(R.string.about_download_failed, error));
+            Toast.makeText(requireContext(), getString(R.string.about_download_failed, error),
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (file == null) {
+            // 用户取消
+            Toast.makeText(requireContext(), R.string.about_download_cancelled,
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        downloadStatus.setText(R.string.about_install_ready);
+        installApk(file);
+    }
+
+    private void cancelDownload() {
+        if (!downloading) {
+            return;
+        }
+        cancelRequested = true;
+        Thread thread = downloadThread;
+        if (thread != null) {
+            thread.interrupt();
+        }
+    }
+
+    private boolean isInstallAllowed() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return requireContext().getPackageManager().canRequestPackageInstalls();
+        }
+        return true;
+    }
+
+    private void installApk(File file) {
+        Context context = requireContext();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isInstallAllowed()) {
+            pendingInstallFile = file;
+            Toast.makeText(context, R.string.about_install_permission, Toast.LENGTH_LONG).show();
+            try {
+                Intent settingsIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + context.getPackageName()));
+                startActivity(settingsIntent);
+            } catch (ActivityNotFoundException e) {
+                Toast.makeText(context, R.string.about_install_failed, Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+        try {
+            Uri uri = FileProvider.getUriForFile(context,
+                    context.getPackageName() + ".fileprovider", file);
+            Intent intent = new Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (ActivityNotFoundException | IllegalArgumentException e) {
+            Toast.makeText(context, R.string.about_install_failed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static boolean verifySigner(Context context, File apk) {
+        try {
+            PackageManager pm = context.getPackageManager();
+            PackageInfo archive = pm.getPackageArchiveInfo(apk.getAbsolutePath(),
+                    PackageManager.GET_SIGNATURES);
+            if (archive == null || archive.signatures == null || archive.signatures.length == 0) {
+                return false;
+            }
+            PackageInfo self = pm.getPackageInfo(context.getPackageName(),
+                    PackageManager.GET_SIGNATURES);
+            if (self.signatures == null || self.signatures.length == 0) {
+                return false;
+            }
+            for (Signature remote : archive.signatures) {
+                for (Signature local : self.signatures) {
+                    if (remote.equals(local)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void clearOldDownloads(File dir) {
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File file : files) {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    private static String safeFileName(String name) {
+        if (TextUtils.isEmpty(name)) {
+            return "zerotierfix-update.apk";
+        }
+        String cleaned = name.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (!cleaned.endsWith(".apk")) {
+            cleaned = cleaned + ".apk";
+        }
+        return cleaned;
+    }
+
+    private static String formatSize(long bytes) {
+        if (bytes < 1024 * 1024) {
+            return String.format(Locale.ROOT, "%.0f KB", bytes / 1024.0);
+        }
+        return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0));
+    }
+
+    private static String fileErrorMessage(IOException e) {
+        String message = e.getMessage();
+        return TextUtils.isEmpty(message) ? e.getClass().getSimpleName() : message;
     }
 
     private String trimNotes(String raw) {
@@ -287,7 +583,7 @@ public class AboutFragment extends Fragment {
             SimpleDateFormat printer = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
             return printer.format(date);
         } catch (ParseException e) {
-            return iso.length() >= 10 ? iso.substring(0, 10) : "";
+            return iso.substring(0, 10);
         }
     }
 

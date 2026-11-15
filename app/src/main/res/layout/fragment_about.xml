@@ -113,6 +113,42 @@
                     android:visibility="gone" />
 
                 <LinearLayout
+                    android:id="@+id/about_download_panel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <com.google.android.material.progressindicator.LinearProgressIndicator
+                        android:id="@+id/about_download_progress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:indeterminate="false"
+                        android:max="100"
+                        app:trackThickness="6dp" />
+
+                    <TextView
+                        android:id="@+id/about_download_status"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/about_cancel_download"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:minWidth="0dp"
+                        android:paddingStart="0dp"
+                        android:paddingEnd="8dp"
+                        android:text="@string/about_cancel_download" />
+                </LinearLayout>
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"

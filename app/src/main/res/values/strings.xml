@@ -214,4 +214,15 @@
     <string name="about_download_update">Download update</string>
     <string name="about_update_notes">New in this release:\n%1$s</string>
     <string name="about_rate_limited">GitHub API rate limit reached, please try again later</string>
+    <string name="about_install_update">Download and install</string>
+    <string name="about_reinstall">Re-download and install</string>
+    <string name="about_download_starting">Downloading…</string>
+    <string name="about_download_progress">%1$d%% · %2$s / %3$s</string>
+    <string name="about_download_failed">Download failed: %1$s</string>
+    <string name="about_download_cancelled">Download cancelled</string>
+    <string name="about_cancel_download">Cancel download</string>
+    <string name="about_install_ready">Download complete, opening the installer…</string>
+    <string name="about_install_permission">Allow ZerotierFix to install unknown apps, then come back to continue</string>
+    <string name="about_install_failed">Could not start the package installer</string>
+    <string name="about_signature_mismatch">The downloaded package is not signed for this app; it was deleted</string>
 </resources>
