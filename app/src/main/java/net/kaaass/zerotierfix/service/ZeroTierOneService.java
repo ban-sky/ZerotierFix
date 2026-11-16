@@ -5,6 +5,8 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
 import android.net.VpnService;
 import android.os.Binder;
 import android.os.Build;
@@ -948,7 +950,11 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
         // 建立 VPN 连接
         this.vpnSocket = builder.establish();
         if (this.vpnSocket == null) {
-            this.eventBus.post(new VPNErrorEvent(getString(R.string.toast_vpn_application_not_prepared)));
+            // 建立失败通常有两种原因：没有拿到 VPN 授权，或者已经有别的 VPN 占用了系统通道。
+            int messageRes = hasActiveForeignVpn()
+                    ? R.string.toast_vpn_conflict
+                    : R.string.toast_vpn_application_not_prepared;
+            this.eventBus.post(new VPNErrorEvent(getString(messageRes)));
             return false;
         }
         this.in = new FileInputStream(this.vpnSocket.getFileDescriptor());
@@ -1081,6 +1087,35 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
             Log.e(TAG, "Failed to orbit " + Long.toHexString(moonWorldId));
             this.eventBus.post(new ErrorEvent(result));
         }
+    }
+
+    /**
+     * 建立 VPN 失败时检查系统里是否已经有其他 VPN 占用通道。
+     *
+     * <p>Android 同一时间只允许一个 VPN 生效，其他 VPN 连接时本应用的
+     * establish() 会返回 null，或者已经建立的连接被系统回收。</p>
+     */
+    private boolean hasActiveForeignVpn() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return false;
+        }
+        try {
+            ConnectivityManager manager =
+                    (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (manager == null) {
+                return false;
+            }
+            for (android.net.Network network : manager.getAllNetworks()) {
+                NetworkCapabilities capabilities = manager.getNetworkCapabilities(network);
+                if (capabilities != null
+                        && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Cannot inspect active VPN networks", e);
+        }
+        return false;
     }
 
     public class ZeroTierBinder extends Binder {

@@ -56,6 +56,9 @@
             android:name=".ui.PeerListActivity"
             android:label="@string/peer_list" />
         <activity
+            android:name=".ui.UpdateActivity"
+            android:label="@string/update" />
+        <activity
             android:name=".ui.AboutActivity"
             android:label="@string/about" />
         <activity

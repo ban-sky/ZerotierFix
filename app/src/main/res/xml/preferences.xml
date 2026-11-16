@@ -34,6 +34,10 @@
             android:title="@string/preferences_network_low_bandwidth" />
     </PreferenceCategory>
     <Preference
+        android:key="update"
+        android:summary="@string/update_summary"
+        android:title="@string/update" />
+    <Preference
         android:key="about"
         android:summary="@string/about_summary"
         android:title="@string/about" />

@@ -225,4 +225,20 @@
     <string name="about_install_permission">Allow ZerotierFix to install unknown apps, then come back to continue</string>
     <string name="about_install_failed">Could not start the package installer</string>
     <string name="about_signature_mismatch">The downloaded package is not signed for this app; it was deleted</string>
+
+    <string name="update">Updates</string>
+    <string name="update_summary">Check for and install new versions</string>
+    <string name="update_current_label">Current version</string>
+    <string name="update_latest_version">Latest release %1$s</string>
+    <string name="update_published_at">Published %1$s</string>
+    <string name="update_rate_limited">GitHub API rate limit reached, please try again later</string>
+    <string name="update_network_error">Could not reach the update server: %1$s</string>
+    <string name="update_vpn_hint">If another VPN is active, disconnect it and try again. You can also open the release page in a browser and install the APK manually.</string>
+    <string name="update_retry">Retry</string>
+    <string name="about_license_label">License</string>
+    <string name="toast_vpn_conflict">Another VPN is active, so the ZeroTier VPN could not be established</string>
+    <string name="vpn_conflict_title">VPN conflict</string>
+    <string name="vpn_conflict_message">Android allows only one VPN at a time. Turn off the other VPN app (or its always-on VPN), then connect again.</string>
+    <string name="vpn_conflict_open_settings">VPN settings</string>
+    <string name="vpn_conflict_dismiss">Got it</string>
 </resources>

@@ -2,6 +2,7 @@ package net.kaaass.zerotierfix.ui;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
@@ -15,6 +16,7 @@ import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -38,6 +40,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.zerotier.sdk.NodeStatus;
 import com.zerotier.sdk.Version;
@@ -498,9 +501,42 @@ public class NetworkListFragment extends Fragment {
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onVPNError(VPNErrorEvent event) {
         var errorMessage = event.getMessage();
+        if (!isAdded() || errorMessage == null) {
+            return;
+        }
+        if (errorMessage.equals(getString(R.string.toast_vpn_conflict))) {
+            showVpnConflictDialog();
+            updateNetworkListAndNotify();
+            return;
+        }
         var message = getString(R.string.toast_vpn_error, errorMessage);
         Toast.makeText(getContext(), message, Toast.LENGTH_LONG).show();
         updateNetworkListAndNotify();
+    }
+
+    /**
+     * 其他 VPN 抢占系统通道时给出明确指引，并直达 VPN 设置。
+     */
+    private void showVpnConflictDialog() {
+        if (!isAdded()) {
+            return;
+        }
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.vpn_conflict_title)
+                .setMessage(R.string.vpn_conflict_message)
+                .setPositiveButton(R.string.vpn_conflict_open_settings, (dialog, which) -> {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_VPN_SETTINGS));
+                    } catch (ActivityNotFoundException e) {
+                        try {
+                            startActivity(new Intent(Settings.ACTION_SETTINGS));
+                        } catch (ActivityNotFoundException ignored) {
+                            // 部分定制系统没有设置入口，忽略即可
+                        }
+                    }
+                })
+                .setNegativeButton(R.string.vpn_conflict_dismiss, null)
+                .show();
     }
 
     private void setOfflineState() {
