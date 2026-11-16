@@ -101,6 +101,7 @@
     <string name="peer_role_leaf">叶结点</string>
     <string name="peer_role_moon">Moon 中转</string>
     <string name="fail_retrieve_peer_list">无法获得结点信息，请检查网络连接状况</string>
+    <string name="peer_update_status">共 %1$d 个节点 · 更新于 %2$s</string>
     <string name="peer_relay">中继</string>
     <string name="peer_detail_open">查看节点详情</string>
     <string name="peer_path_count">共 %d 条路径</string>

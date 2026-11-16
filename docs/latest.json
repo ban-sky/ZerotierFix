@@ -1,8 +1,8 @@
 {
-  "version": "2.2.5",
-  "releaseUrl": "https://github.com/ban-sky/ZerotierFix/releases/tag/v2.2.5",
+  "version": "2.2.6",
+  "releaseUrl": "https://github.com/ban-sky/ZerotierFix/releases/tag/v2.2.6",
   "publishedAt": "",
-  "apkName": "ZerotierFix-2.2.5-release.apk",
-  "apkUrl": "https://github.com/ban-sky/ZerotierFix/releases/download/v2.2.5/ZerotierFix-2.2.5-release.apk",
-  "notes": "更新检查与下载支持国内网络镜像，更新页去掉 VPN 提示。"
+  "apkName": "ZerotierFix-2.2.6-release.apk",
+  "apkUrl": "https://github.com/ban-sky/ZerotierFix/releases/download/v2.2.6/ZerotierFix-2.2.6-release.apk",
+  "notes": "结点列表自动刷新、下拉刷新体验修复，显示节点数量与刷新时间。"
 }

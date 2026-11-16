@@ -1,8 +1,9 @@
 package net.kaaass.zerotierfix.ui;
 
-import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,8 +30,10 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -45,9 +48,45 @@ public class PeerListFragment extends Fragment {
 
     public static final String TAG = "PeerListFragment";
 
+    /**
+     * 页面可见时自动查询 Peer 信息的间隔
+     */
+    private static final long AUTO_REFRESH_INTERVAL_MS = 3000L;
+
+    /**
+     * 手动下拉刷新等待回复的超时时间
+     */
+    private static final long REFRESH_TIMEOUT_MS = 4000L;
+
     private final List<Peer> peerList = new ArrayList<>();
 
     private final EventBus eventBus;
+
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+
+    /**
+     * 页面可见时周期性刷新，使延迟/路径等数据随 ZeroTier 的 ping 结果更新
+     */
+    private final Runnable autoRefreshTask = new Runnable() {
+        @Override
+        public void run() {
+            if (!isAdded() || getView() == null) {
+                return;
+            }
+            requestPeers(false);
+            uiHandler.postDelayed(this, AUTO_REFRESH_INTERVAL_MS);
+        }
+    };
+
+    /**
+     * 手动刷新的超时保护：避免 spinner 一直转
+     */
+    private final Runnable refreshTimeoutTask = () -> {
+        if (isAdded()) {
+            this.manualRefresh = false;
+            setRefreshing(false);
+        }
+    };
 
     private RecyclerViewAdapter recyclerViewAdapter = null;
 
@@ -55,7 +94,13 @@ public class PeerListFragment extends Fragment {
 
     private SwipeRefreshLayout swipeRefreshLayout = null;
 
+    private TextView statusView = null;
+
     private View emptyView = null;
+
+    private boolean eventBusRegistered = false;
+
+    private boolean manualRefresh = false;
 
     final private RecyclerView.AdapterDataObserver checkIfEmptyObserver = new RecyclerView.AdapterDataObserver() {
         @Override
@@ -87,7 +132,6 @@ public class PeerListFragment extends Fragment {
 
     public PeerListFragment() {
         this.eventBus = EventBus.getDefault();
-        this.eventBus.register(this);
     }
 
     /**
@@ -106,8 +150,28 @@ public class PeerListFragment extends Fragment {
     }
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    public void onStart() {
+        super.onStart();
+        if (!this.eventBusRegistered) {
+            this.eventBus.register(this);
+            this.eventBusRegistered = true;
+        }
+        // 进入页面立即查询一次，随后周期性刷新
+        requestPeers(false);
+        this.uiHandler.removeCallbacks(this.autoRefreshTask);
+        this.uiHandler.postDelayed(this.autoRefreshTask, AUTO_REFRESH_INTERVAL_MS);
+    }
+
+    @Override
+    public void onStop() {
+        this.uiHandler.removeCallbacks(this.autoRefreshTask);
+        this.uiHandler.removeCallbacks(this.refreshTimeoutTask);
+        if (this.eventBusRegistered) {
+            this.eventBus.unregister(this);
+            this.eventBusRegistered = false;
+        }
+        setRefreshing(false);
+        super.onStop();
     }
 
     @Override
@@ -117,6 +181,9 @@ public class PeerListFragment extends Fragment {
 
         // 空列表提示
         this.emptyView = view.findViewById(R.id.no_data);
+
+        // 列表顶部状态（节点数量 + 最近刷新时间）
+        this.statusView = view.findViewById(R.id.peer_update_status);
 
         // 设置适配器
         this.recyclerView = view.findViewById(R.id.list_peer);
@@ -130,28 +197,33 @@ public class PeerListFragment extends Fragment {
         this.swipeRefreshLayout = view.findViewById(R.id.swipe_refresh_peer);
         this.swipeRefreshLayout.setOnRefreshListener(this::onRefresh);
 
-        // 更新入轨数据
-        this.eventBus.post(new PeerInfoRequestEvent());
-
         return view;
     }
 
     /**
-     * 刷新列表
+     * 下拉刷新：等待真正的回复后再收起 spinner，超时才兜底
      */
     public void onRefresh() {
+        requestPeers(true);
+    }
+
+    private void requestPeers(boolean manual) {
+        if (!isAdded()) {
+            return;
+        }
+        this.manualRefresh = manual;
+        this.uiHandler.removeCallbacks(this.refreshTimeoutTask);
+        if (manual) {
+            setRefreshing(true);
+            this.uiHandler.postDelayed(this.refreshTimeoutTask, REFRESH_TIMEOUT_MS);
+        }
         this.eventBus.post(new PeerInfoRequestEvent());
-        // 超时自动重置刷新状态
-        new Thread(() -> {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException ignored) {
-            }
-            Activity activity = getActivity();
-            if (activity != null) {
-                activity.runOnUiThread(() -> this.swipeRefreshLayout.setRefreshing(false));
-            }
-        }).start();
+    }
+
+    private void setRefreshing(boolean refreshing) {
+        if (this.swipeRefreshLayout != null) {
+            this.swipeRefreshLayout.setRefreshing(refreshing);
+        }
     }
 
     /**
@@ -159,9 +231,20 @@ public class PeerListFragment extends Fragment {
      */
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onPeerInfoReplyEvent(PeerInfoReplyEvent event) {
+        if (!isAdded() || getView() == null) {
+            return;
+        }
+        boolean wasManual = this.manualRefresh;
+        this.manualRefresh = false;
+        this.uiHandler.removeCallbacks(this.refreshTimeoutTask);
+        setRefreshing(false);
+
         Peer[] peers = event.getPeers();
         if (peers == null) {
-            Snackbar.make(requireView(), R.string.fail_retrieve_peer_list, BaseTransientBottomBar.LENGTH_LONG).show();
+            // 自动刷新不打扰用户，仅手动刷新时提示
+            if (wasManual) {
+                Snackbar.make(requireView(), R.string.fail_retrieve_peer_list, BaseTransientBottomBar.LENGTH_LONG).show();
+            }
             return;
         }
         // 更新数据列表：优先展示直连的节点，其次按延迟排序
@@ -169,7 +252,23 @@ public class PeerListFragment extends Fragment {
         Collections.addAll(this.peerList, peers);
         this.peerList.sort(PeerListFragment::comparePeers);
         this.recyclerViewAdapter.notifyDataSetChanged();
-        this.swipeRefreshLayout.setRefreshing(false);
+        updateStatus(peers.length);
+    }
+
+    /**
+     * 更新顶部状态行
+     */
+    private void updateStatus(int count) {
+        if (this.statusView == null) {
+            return;
+        }
+        if (count <= 0) {
+            this.statusView.setVisibility(View.GONE);
+            return;
+        }
+        String time = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
+        this.statusView.setText(getString(R.string.peer_update_status, count, time));
+        this.statusView.setVisibility(View.VISIBLE);
     }
 
     /**

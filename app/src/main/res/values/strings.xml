@@ -103,6 +103,7 @@
     <string name="peer_role_moon">Moon</string>
     <string name="peer_lat" translatable="false">%d ms</string>
     <string name="fail_retrieve_peer_list">Failed to retrieve peer info. Please check your network connection.</string>
+    <string name="peer_update_status">%1$d peers · updated %2$s</string>
     <string name="peer_relay">Relay</string>
     <string name="peer_detail_open">Show peer details</string>
     <string name="peer_path_count">%d paths</string>
