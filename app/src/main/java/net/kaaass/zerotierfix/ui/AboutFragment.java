@@ -20,7 +20,7 @@ import net.kaaass.zerotierfix.BuildConfig;
 import net.kaaass.zerotierfix.R;
 
 /**
- * 关于页：只展示版本、项目地址与许可证，更新相关操作统一放到 {@link UpdateActivity}。
+ * 关于页：只展示版本、项目地址与许可证，更新相关操作统一放到 {@link UpdateDialogFragment}。
  */
 public class AboutFragment extends Fragment {
     private static final String PROJECT_URL = "https://github.com/ban-sky/ZerotierFix";
@@ -45,7 +45,7 @@ public class AboutFragment extends Fragment {
 
         MaterialButton updateButton = view.findViewById(R.id.about_open_update);
         updateButton.setOnClickListener(v ->
-                startActivity(new Intent(requireContext(), UpdateActivity.class)));
+                UpdateDialogFragment.show(getParentFragmentManager()));
     }
 
     private void openProjectPage() {

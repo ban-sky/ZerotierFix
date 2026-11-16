@@ -121,7 +121,7 @@ public class PrefsFragment extends PreferenceFragmentCompat implements SharedPre
         Preference prefUpdate = findPreference("update");
         if (prefUpdate != null) {
             prefUpdate.setOnPreferenceClickListener(preference -> {
-                startActivity(new Intent(requireContext(), UpdateActivity.class));
+                UpdateDialogFragment.show(getParentFragmentManager());
                 return true;
             });
         }

@@ -1066,7 +1066,10 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
         // 入轨
         for (MoonOrbit moonOrbit : event.getMoonOrbits()) {
             Log.i(TAG, "Orbiting moon: " + Long.toHexString(moonOrbit.getMoonWorldId()));
-            this.orbitNetwork(moonOrbit.getMoonWorldId(), moonOrbit.getMoonSeed());
+            // 从文件导入的 moon 定义来自本地 moons.d，必须用 seed 0 告诉
+            // ZeroTier 直接读取本地文件；历史数据里可能存了错误的 seed。
+            long seed = moonOrbit.getFromFile() ? 0L : moonOrbit.getMoonSeed();
+            this.orbitNetwork(moonOrbit.getMoonWorldId(), seed);
         }
     }
 
@@ -1079,6 +1082,10 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
     public void orbitNetwork(Long moonWorldId, Long moonSeed) {
         if (this.node == null) {
             Log.e(TAG, "Can't orbit network if ZeroTier isn't running");
+            return;
+        }
+        if (moonWorldId == null || moonSeed == null) {
+            Log.e(TAG, "Invalid moon id or seed");
             return;
         }
         // 入轨

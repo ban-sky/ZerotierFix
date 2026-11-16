@@ -95,9 +95,30 @@ public class MoonOrbitFragment extends Fragment {
     private AlertDialog providerDialog = null;
     private ActivityResultLauncher<Intent> moonFileSelectLauncher = null;
 
+    private boolean eventBusRegistered = false;
+
     public MoonOrbitFragment() {
         this.eventBus = EventBus.getDefault();
-        this.eventBus.register(this);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        // 只在本片段可见时接收事件，避免离开页面后仍然处理事件导致
+        // requireActivity()/requireView() 抛 IllegalStateException。
+        if (!this.eventBusRegistered) {
+            this.eventBus.register(this);
+            this.eventBusRegistered = true;
+        }
+    }
+
+    @Override
+    public void onStop() {
+        if (this.eventBusRegistered) {
+            this.eventBus.unregister(this);
+            this.eventBusRegistered = false;
+        }
+        super.onStop();
     }
 
     @Override
@@ -165,7 +186,9 @@ public class MoonOrbitFragment extends Fragment {
                 }
                 Log.i(TAG, "Copy planet file successfully");
                 // 加入 Moon
-                onAddMoonOrbitEvent(new AddMoonOrbitEvent(moonWorldId, moonWorldId, true));
+                // 从文件导入的 moon 由 moons.d 提供定义，seed 必须为 0，
+                // 否则 ZeroTier 会去 query 一个不存在的成员节点。
+                onAddMoonOrbitEvent(new AddMoonOrbitEvent(moonWorldId, 0L, true));
             } else {
                 Toast.makeText(getContext(), R.string.cannot_open_moon, Toast.LENGTH_LONG).show();
             }
@@ -234,8 +257,8 @@ public class MoonOrbitFragment extends Fragment {
                     long moonSeed;
                     // 解析 Moon 地址
                     try {
-                        moonWorldId = Long.parseLong(textMoonWorldId.getText().toString(), 16);
-                        if (!(0 <= moonWorldId && moonWorldId <= 0xffffffffffL))
+                        moonWorldId = Long.parseLong(textMoonWorldId.getText().toString().trim(), 16);
+                        if (!(0 < moonWorldId && moonWorldId <= 0xffffffffffL))
                             throw new NumberFormatException();
                     } catch (NumberFormatException ignored) {
                         Snackbar.make(requireView(), R.string.moon_world_id_wrong_format, BaseTransientBottomBar.LENGTH_SHORT).show();
@@ -243,7 +266,7 @@ public class MoonOrbitFragment extends Fragment {
                     }
                     // 解析 Seed
                     try {
-                        moonSeed = Long.parseLong(textMoonSeed.getText().toString(), 16);
+                        moonSeed = Long.parseLong(textMoonSeed.getText().toString().trim(), 16);
                         if (!(0 <= moonSeed && moonSeed <= 0xffffffffffL))
                             throw new NumberFormatException();
                     } catch (NumberFormatException ignored) {
@@ -274,9 +297,14 @@ public class MoonOrbitFragment extends Fragment {
         int dataLen = MOON_FILE_HEADER.length + 8;
         byte[] buf = new byte[dataLen];
         try (FileInputStream in = new FileInputStream(temp)) {
-            // 读入文件头
-            if (in.read(buf) != dataLen) {
-                return -1;
+            // 读入文件头（单次 read 可能读不满，需要循环）
+            int read = 0;
+            while (read < dataLen) {
+                int count = in.read(buf, read, dataLen - read);
+                if (count <= 0) {
+                    return -1;
+                }
+                read += count;
             }
             // 校验
             if (buf[0] != MOON_FILE_HEADER[0]) {
@@ -287,6 +315,11 @@ public class MoonOrbitFragment extends Fragment {
             long moonWorldId = 0;
             for (int i = MOON_FILE_HEADER.length; i < dataLen; i++) {
                 moonWorldId = (moonWorldId << 8) + (buf[i] & 0xff);
+            }
+            // ZeroTier 的世界 ID / 地址只有 40 位，超出范围或为 0 都不是合法 moon。
+            if (moonWorldId <= 0 || moonWorldId > 0xffffffffffL) {
+                Log.i(TAG, "Moon file has an invalid world id");
+                return -1;
             }
             return moonWorldId;
         } catch (IOException ignored) {
@@ -322,6 +355,8 @@ public class MoonOrbitFragment extends Fragment {
                     String.format(MoonOrbit.MOON_FILE_PATH, moonWorldId));
             if (!FileUtil.tempFile(requireContext()).renameTo(dest)) {
                 Toast.makeText(getContext(), R.string.cannot_open_moon, Toast.LENGTH_LONG).show();
+                FileUtil.clearTempFile(requireContext());
+                return;
             }
             FileUtil.clearTempFile(requireContext());
         }
@@ -358,6 +393,11 @@ public class MoonOrbitFragment extends Fragment {
                         MoonOrbitDao.Properties.MoonSeed.eq(moonSeed))
                 .build()
                 .unique();
+        if (moonOrbit == null) {
+            // 记录可能已被删除（重复事件或并发操作），这里不能空指针。
+            updateOrbitList();
+            return;
+        }
         // 删除缓存文件
         moonOrbit.deleteCacheFile(requireContext());
         // 删除记录

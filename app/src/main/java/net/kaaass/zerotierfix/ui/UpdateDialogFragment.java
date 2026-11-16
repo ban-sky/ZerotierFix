@@ -1,5 +1,6 @@
 package net.kaaass.zerotierfix.ui;
 
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -11,6 +12,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,8 +22,11 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.FileProvider;
-import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 
@@ -45,6 +50,8 @@ import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -56,13 +63,18 @@ import java.util.TimeZone;
  * 这里约定：后台线程只处理数据，绝不调用 {@code getString}/{@code getResources}；
  * 所有文案都在主线程按资源 id 组装，并且回调前统一检查 {@link #isAdded()}。</p>
  */
-public class UpdateFragment extends Fragment {
+public class UpdateDialogFragment extends BottomSheetDialogFragment {
+    private static final String TAG = "UpdateDialog";
     private static final String PROJECT_URL = "https://github.com/ban-sky/ZerotierFix";
     private static final String RELEASES_URL = PROJECT_URL + "/releases";
     private static final String LATEST_RELEASE_API =
             "https://api.github.com/repos/ban-sky/ZerotierFix/releases/latest";
     private static final int MAX_NOTES_LENGTH = 700;
     private static final String UPDATE_DIR = "updates";
+    private static final String DIALOG_TAG = "update-dialog";
+
+    private final Map<String, String> changelog = new LinkedHashMap<>();
+    private String newestChangelogVersion;
 
     private TextView versionView;
     private TextView statusView;
@@ -92,11 +104,33 @@ public class UpdateFragment extends Fragment {
     private String latestApkName;
     private File pendingInstallFile;
 
+    public static void show(@NonNull FragmentManager manager) {
+        UpdateDialogFragment fragment = new UpdateDialogFragment();
+        fragment.show(manager, DIALOG_TAG);
+    }
+
+    @NonNull
+    @Override
+    public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
+        return new BottomSheetDialog(requireContext(), getTheme());
+    }
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_update, container, false);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        Dialog dialog = getDialog();
+        if (dialog instanceof BottomSheetDialog) {
+            BottomSheetBehavior<?> behavior = ((BottomSheetDialog) dialog).getBehavior();
+            behavior.setSkipCollapsed(true);
+            behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+        }
     }
 
     @Override
@@ -128,7 +162,11 @@ public class UpdateFragment extends Fragment {
         downloadButton.setOnClickListener(v -> startDownload());
         cancelButton.setOnClickListener(v -> cancelDownload());
         openReleaseButton.setOnClickListener(v -> openUrl(RELEASES_URL));
+        View closeButton = view.findViewById(R.id.update_close);
+        closeButton.setOnClickListener(v -> dismiss());
 
+        loadChangelog();
+        showLocalChangelog();
         checkForUpdates();
     }
 
@@ -155,7 +193,6 @@ public class UpdateFragment extends Fragment {
         }
         statusView.setText(R.string.about_checking);
         checkButton.setEnabled(false);
-        latestCard.setVisibility(View.GONE);
         downloadButton.setVisibility(View.GONE);
         hintCard.setVisibility(View.GONE);
 
@@ -290,7 +327,10 @@ public class UpdateFragment extends Fragment {
             latestDateView.setVisibility(View.VISIBLE);
         }
 
-        String notes = trimNotes(result.notes);
+        String localNotes = changelog.get(latest);
+        String notes = localNotes != null
+                ? getString(R.string.about_update_notes, localNotes)
+                : trimNotes(result.notes);
         if (!TextUtils.isEmpty(notes)) {
             notesView.setText(notes);
             notesView.setVisibility(View.VISIBLE);
@@ -647,6 +687,64 @@ public class UpdateFragment extends Fragment {
         } catch (ActivityNotFoundException | IllegalArgumentException e) {
             Toast.makeText(requireContext(), R.string.about_no_browser, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /**
+     * 读取内置的中文更新日志，格式为「版本号 + 若干行说明」，版本从新到旧排列。
+     */
+    private void loadChangelog() {
+        changelog.clear();
+        newestChangelogVersion = null;
+        try (InputStream input = getResources().openRawResource(R.raw.changelog_zh);
+             BufferedReader reader = new BufferedReader(
+                     new InputStreamReader(input, StandardCharsets.UTF_8))) {
+            String line;
+            String version = null;
+            StringBuilder body = new StringBuilder();
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.matches("\\d+(\\.\\d+)+")) {
+                    if (version != null) {
+                        changelog.put(version, body.toString().trim());
+                    }
+                    version = trimmed;
+                    body.setLength(0);
+                } else if (version != null) {
+                    if (!trimmed.isEmpty()) {
+                        body.append(trimmed).append('\n');
+                    }
+                }
+            }
+            if (version != null) {
+                changelog.put(version, body.toString().trim());
+            }
+            // 文件按「新版本在前」排列，第一个条目就是最新日志。
+            if (!changelog.isEmpty()) {
+                newestChangelogVersion = changelog.keySet().iterator().next();
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Cannot read bundled changelog", e);
+        }
+    }
+
+    /**
+     * 网络请求还没回来时，先把内置的最新版本日志展示出来，断网时也能看到更新内容。
+     */
+    private void showLocalChangelog() {
+        if (newestChangelogVersion == null) {
+            return;
+        }
+        String notes = changelog.get(newestChangelogVersion);
+        latestVersionView.setText(getString(R.string.update_changelog_version,
+                newestChangelogVersion));
+        latestDateView.setVisibility(View.GONE);
+        if (notes == null || notes.isEmpty()) {
+            notesView.setVisibility(View.GONE);
+        } else {
+            notesView.setText(getString(R.string.about_update_notes, notes));
+            notesView.setVisibility(View.VISIBLE);
+        }
+        latestCard.setVisibility(View.VISIBLE);
     }
 
     private static final class CheckResult {

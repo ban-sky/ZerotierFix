@@ -241,4 +241,7 @@
     <string name="vpn_conflict_message">Android allows only one VPN at a time. Turn off the other VPN app (or its always-on VPN), then connect again.</string>
     <string name="vpn_conflict_open_settings">VPN settings</string>
     <string name="vpn_conflict_dismiss">Got it</string>
+
+    <string name="update_close">Close</string>
+    <string name="update_changelog_version">Version %1$s</string>
 </resources>
