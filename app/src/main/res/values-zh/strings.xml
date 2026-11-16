@@ -231,7 +231,7 @@
     <string name="update_published_at">发布于 %1$s</string>
     <string name="update_rate_limited">GitHub 接口触发限流，请稍后再试</string>
     <string name="update_network_error">无法连接更新服务器：%1$s</string>
-    <string name="update_vpn_hint">如果同时开着其他 VPN，请先断开再重试；也可以直接在浏览器中打开 Release 页面手动下载安装包。</string>
+    <string name="update_hint_text">如果一直无法连接，可以稍后重试，或直接在浏览器中打开 Release 页面手动下载安装包。</string>
     <string name="update_retry">重试</string>
     <string name="about_license_label">许可证</string>
     <string name="toast_vpn_conflict">检测到其他 VPN 正在运行，ZeroTier 的 VPN 无法建立</string>

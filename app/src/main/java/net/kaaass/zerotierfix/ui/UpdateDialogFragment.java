@@ -49,8 +49,10 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -69,6 +71,22 @@ public class UpdateDialogFragment extends BottomSheetDialogFragment {
     private static final String RELEASES_URL = PROJECT_URL + "/releases";
     private static final String LATEST_RELEASE_API =
             "https://api.github.com/repos/ban-sky/ZerotierFix/releases/latest";
+    /**
+     * 国内直连 GitHub API 经常被墙或超时，按顺序尝试公共镜像（前缀 + 原始地址）。
+     * 最后一项为空串，表示直连。
+     */
+    private static final String[] MIRROR_PREFIXES = {
+            "https://gh-proxy.com/",
+            "https://ghfast.top/",
+            "https://ghproxy.net/",
+            ""
+    };
+    /**
+     * 全部镜像都不可用时的兜底：仓库内维护的最新版本信息，由 jsDelivr 提供，
+     * 国内可以直接访问。字段见 docs/latest.json。
+     */
+    private static final String CDN_LATEST_JSON =
+            "https://cdn.jsdelivr.net/gh/ban-sky/ZerotierFix@main/docs/latest.json";
     private static final int MAX_NOTES_LENGTH = 700;
     private static final String UPDATE_DIR = "updates";
     private static final String DIALOG_TAG = "update-dialog";
@@ -101,6 +119,8 @@ public class UpdateDialogFragment extends BottomSheetDialogFragment {
     private Thread downloadThread;
 
     private String latestApkUrl;
+    /** 上一次成功访问 GitHub 用的镜像前缀，下载时优先复用。 */
+    private String downloadPrefix = "";
     private String latestApkName;
     private File pendingInstallFile;
 
@@ -222,12 +242,42 @@ public class UpdateDialogFragment extends BottomSheetDialogFragment {
         });
     }
 
+    /**
+     * 依次尝试各个镜像与直连，任何一个返回合法 JSON 就采用；全部失败再读 CDN 兜底文件。
+     * 后台线程，禁止取字符串资源。
+     */
     private CheckResult queryLatestRelease() throws IOException, JSONException {
-        HttpURLConnection connection =
-                (HttpURLConnection) new URL(LATEST_RELEASE_API).openConnection();
+        IOException lastError = null;
+        for (String prefix : MIRROR_PREFIXES) {
+            try {
+                CheckResult result = queryReleaseFrom(prefix);
+                if (result != null) {
+                    downloadPrefix = prefix;
+                    return result;
+                }
+            } catch (IOException e) {
+                lastError = e;
+            } catch (JSONException e) {
+                // 镜像返回了 HTML 错误页，换下一个源。
+                lastError = new IOException("bad json from " + prefix, e);
+            }
+        }
         try {
-            connection.setConnectTimeout(15_000);
-            connection.setReadTimeout(15_000);
+            return queryCdnLatest();
+        } catch (IOException e) {
+            if (lastError != null) {
+                throw lastError;
+            }
+            throw e;
+        }
+    }
+
+    private CheckResult queryReleaseFrom(String prefix) throws IOException, JSONException {
+        HttpURLConnection connection =
+                (HttpURLConnection) new URL(prefix + LATEST_RELEASE_API).openConnection();
+        try {
+            connection.setConnectTimeout(8_000);
+            connection.setReadTimeout(10_000);
             connection.setRequestMethod("GET");
             connection.setRequestProperty("Accept", "application/vnd.github+json");
             connection.setRequestProperty("User-Agent",
@@ -242,9 +292,44 @@ public class UpdateDialogFragment extends BottomSheetDialogFragment {
                 return CheckResult.rateLimited();
             }
             if (code != HttpURLConnection.HTTP_OK) {
-                return CheckResult.networkError("HTTP " + code);
+                throw new IOException("HTTP " + code);
             }
             return parseRelease(readBody(connection.getInputStream()));
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    /**
+     * CDN 兜底文件由 jsDelivr 提供，国内可直连；内容是 GitHub Release 的简化快照。
+     */
+    private CheckResult queryCdnLatest() throws IOException, JSONException {
+        HttpURLConnection connection =
+                (HttpURLConnection) new URL(CDN_LATEST_JSON).openConnection();
+        try {
+            connection.setConnectTimeout(8_000);
+            connection.setReadTimeout(10_000);
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("User-Agent",
+                    "ZerotierFix/" + BuildConfig.VERSION_NAME);
+            int code = connection.getResponseCode();
+            if (code != HttpURLConnection.HTTP_OK) {
+                throw new IOException("HTTP " + code);
+            }
+            JSONObject json = new JSONObject(readBody(connection.getInputStream()));
+            String version = json.optString("version", "");
+            if (version.isEmpty()) {
+                throw new IOException("empty cdn payload");
+            }
+            String releaseUrl = json.optString("releaseUrl", RELEASES_URL);
+            String publishedAt = json.optString("publishedAt", "");
+            String notes = json.optString("notes", "");
+            String apkUrl = json.optString("apkUrl", "");
+            String apkName = json.optString("apkName", "");
+            downloadPrefix = "";
+            return CheckResult.success(version, releaseUrl, publishedAt, notes,
+                    apkUrl.isEmpty() ? null : apkUrl,
+                    apkName.isEmpty() ? null : apkName);
         } finally {
             connection.disconnect();
         }
@@ -408,6 +493,48 @@ public class UpdateDialogFragment extends BottomSheetDialogFragment {
         File target = new File(dir, fileName);
         File temp = new File(dir, fileName + ".part");
 
+        IOException lastError = null;
+        for (String prefix : downloadSources()) {
+            if (cancelRequested) {
+                return null;
+            }
+            try {
+                File result = downloadOnce(prefix + url, temp, target);
+                if (result != null) {
+                    return result;
+                }
+                if (cancelRequested) {
+                    return null;
+                }
+            } catch (IOException e) {
+                lastError = e;
+                //noinspection ResultOfMethodCallIgnored
+                temp.delete();
+            }
+        }
+        throw lastError != null ? lastError : new IOException("no download source");
+    }
+
+    /**
+     * 优先复用刚才检查更新成功的镜像，再依次尝试其它镜像与直连。
+     */
+    private List<String> downloadSources() {
+        List<String> sources = new ArrayList<>();
+        if (downloadPrefix != null && !downloadPrefix.isEmpty()) {
+            sources.add(downloadPrefix);
+        }
+        for (String prefix : MIRROR_PREFIXES) {
+            if (!sources.contains(prefix)) {
+                sources.add(prefix);
+            }
+        }
+        return sources;
+    }
+
+    /**
+     * 下载单个候选地址；HTTP 非 200 抛异常由上层换源，取消返回 null。
+     */
+    private File downloadOnce(String url, File temp, File target) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         try {
             connection.setConnectTimeout(15_000);

@@ -233,7 +233,7 @@
     <string name="update_published_at">Published %1$s</string>
     <string name="update_rate_limited">GitHub API rate limit reached, please try again later</string>
     <string name="update_network_error">Could not reach the update server: %1$s</string>
-    <string name="update_vpn_hint">If another VPN is active, disconnect it and try again. You can also open the release page in a browser and install the APK manually.</string>
+    <string name="update_hint_text">If the check keeps failing, try again later, or open the release page in a browser and install the APK manually.</string>
     <string name="update_retry">Retry</string>
     <string name="about_license_label">License</string>
     <string name="toast_vpn_conflict">Another VPN is active, so the ZeroTier VPN could not be established</string>

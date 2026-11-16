@@ -1,0 +1,8 @@
+{
+  "version": "2.2.5",
+  "releaseUrl": "https://github.com/ban-sky/ZerotierFix/releases/tag/v2.2.5",
+  "publishedAt": "",
+  "apkName": "ZerotierFix-2.2.5-release.apk",
+  "apkUrl": "https://github.com/ban-sky/ZerotierFix/releases/download/v2.2.5/ZerotierFix-2.2.5-release.apk",
+  "notes": "更新检查与下载支持国内网络镜像，更新页去掉 VPN 提示。"
+}
